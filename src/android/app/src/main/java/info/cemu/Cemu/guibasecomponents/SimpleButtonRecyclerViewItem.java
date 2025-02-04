@@ -41,8 +41,9 @@ public class SimpleButtonRecyclerViewItem implements RecyclerViewItem {
         SimpleButtonRecyclerViewItem.SimpleButtonViewHolder buttonViewHolder = (SimpleButtonRecyclerViewItem.SimpleButtonViewHolder) viewHolder;
         buttonViewHolder.text.setText(text);
         buttonViewHolder.itemView.setOnClickListener(view -> {
-            if (onButtonClickListener != null)
+            if (onButtonClickListener != null) {
                 onButtonClickListener.onButtonClick();
+            }
         });
     }
 }

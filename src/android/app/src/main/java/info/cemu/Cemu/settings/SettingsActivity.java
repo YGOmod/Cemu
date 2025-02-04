@@ -4,31 +4,28 @@ import android.os.Bundle;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.navigation.NavController;
-import androidx.navigation.Navigation;
+import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
+
+import java.util.Objects;
 
 import info.cemu.Cemu.R;
 import info.cemu.Cemu.databinding.ActivitySettingsBinding;
 
 public class SettingsActivity extends AppCompatActivity {
-    private AppBarConfiguration appBarConfiguration;
-    private NavController navController;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        info.cemu.Cemu.databinding.ActivitySettingsBinding binding = ActivitySettingsBinding.inflate(getLayoutInflater());
+        ActivitySettingsBinding binding = ActivitySettingsBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
         setSupportActionBar(binding.toolbarSettings);
-        navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_settings);
-        appBarConfiguration = new AppBarConfiguration.Builder().build();
-        NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
-    }
-
-    @Override
-    public boolean onSupportNavigateUp() {
-        return NavigationUI.navigateUp(navController, appBarConfiguration)
-                || super.onSupportNavigateUp();
+        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment_content_settings);
+        NavController navController = Objects.requireNonNull(navHostFragment).getNavController();
+        AppBarConfiguration appBarConfiguration = new AppBarConfiguration.Builder()
+                .setFallbackOnNavigateUpListener(this::onSupportNavigateUp)
+                .build();
+        NavigationUI.setupWithNavController(binding.toolbarSettings, navController, appBarConfiguration);
     }
 }

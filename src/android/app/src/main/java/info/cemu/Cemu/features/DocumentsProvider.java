@@ -85,7 +85,9 @@ public class DocumentsProvider extends android.provider.DocumentsProvider {
 
     @Override
     public boolean isChildDocument(String parentDocumentId, String documentId) {
-        if (parentDocumentId == null || documentId == null) return false;
+        if (parentDocumentId == null || documentId == null) {
+            return false;
+        }
         return documentId.startsWith(parentDocumentId);
     }
 
@@ -95,12 +97,14 @@ public class DocumentsProvider extends android.provider.DocumentsProvider {
         var newFile = resolveWithoutConflict(parentFile, displayName);
 
         if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mimeType)) {
-            if (!newFile.mkdir())
+            if (!newFile.mkdir()) {
                 throw new FileNotFoundException("Failed to create directory");
+            }
         } else {
             try {
-                if (!newFile.createNewFile())
+                if (!newFile.createNewFile()) {
                     throw new FileNotFoundException("Failed to create file");
+                }
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -116,25 +120,31 @@ public class DocumentsProvider extends android.provider.DocumentsProvider {
             deleteFolder(file);
             return;
         }
-        if (!file.delete())
+        if (!file.delete()) {
             throw new FileNotFoundException("Couldn't delete document with ID " + documentId);
+        }
     }
 
     private void deleteFolder(File dirFile) throws FileNotFoundException {
-        if (!dirFile.isDirectory())
+        if (!dirFile.isDirectory()) {
             return;
+        }
         var files = dirFile.listFiles();
-        if (files == null) return;
+        if (files == null) {
+            return;
+        }
         for (var file : files) {
             if (file.isDirectory()) {
                 deleteFolder(file);
                 continue;
             }
-            if (!file.delete())
+            if (!file.delete()) {
                 throw new FileNotFoundException("Couldn't delete file " + file.getPath());
+            }
         }
-        if (!dirFile.delete())
+        if (!dirFile.delete()) {
             throw new FileNotFoundException("Couldn't delete file " + dirFile.getPath());
+        }
     }
 
     @Override
@@ -142,30 +152,35 @@ public class DocumentsProvider extends android.provider.DocumentsProvider {
         var parent = getFile(parentDocumentId);
         var file = getFile(documentId);
 
-        if (!(parent.equals(file) || file.getParentFile() == null || file.getParentFile().equals(parent)))
+        if (!(parent.equals(file) || file.getParentFile() == null || file.getParentFile().equals(parent))) {
             throw new FileNotFoundException("Couldn't delete document with ID " + documentId);
+        }
         if (file.isDirectory()) {
             deleteFolder(file);
             return;
         }
-        if (!file.delete())
+        if (!file.delete()) {
             throw new FileNotFoundException("Couldn't delete document with ID " + documentId);
+        }
     }
 
     @Override
     public String renameDocument(String documentId, String displayName) throws FileNotFoundException {
-        if (displayName == null)
+        if (displayName == null) {
             throw new FileNotFoundException("Couldn't rename document " + documentId + " as the new name is null");
+        }
 
         var sourceFile = getFile(documentId);
         var sourceParentFile = sourceFile.getParentFile();
-        if (sourceParentFile == null)
+        if (sourceParentFile == null) {
             throw new FileNotFoundException("Couldn't rename document '" + documentId + "' as it has no parent");
+        }
         var destFile = resolve(sourceParentFile, displayName);
 
         try {
-            if (!sourceFile.renameTo(destFile))
+            if (!sourceFile.renameTo(destFile)) {
                 throw new FileNotFoundException("Couldn't rename document from '" + sourceFile.getName() + "' to '" + destFile.getName() + "'");
+            }
         } catch (Exception exception) {
             throw new FileNotFoundException("Couldn't rename document from '" + sourceFile.getName() + "' to '" + destFile.getName() + "':" + exception.getMessage());
         }
@@ -180,8 +195,9 @@ public class DocumentsProvider extends android.provider.DocumentsProvider {
         var newFile = resolveWithoutConflict(parent, oldFile.getName());
 
         try {
-            if (!(newFile.createNewFile() && newFile.setWritable(true) && newFile.setReadable(true)))
+            if (!(newFile.createNewFile() && newFile.setWritable(true) && newFile.setReadable(true))) {
                 throw new IOException("Couldn't create new file");
+            }
             try (var inputStream = new FileInputStream(oldFile); var outputStream = new FileOutputStream(newFile)) {
                 byte[] b = new byte[1024];
                 int len;
@@ -211,10 +227,12 @@ public class DocumentsProvider extends android.provider.DocumentsProvider {
         var cursor = new MatrixCursor(projection == null ? DEFAULT_DOCUMENT_PROJECTION : projection);
         var parent = getFile(parentDocumentId);
         var files = parent.listFiles();
-        if (files == null)
+        if (files == null) {
             return cursor;
-        for (var file : files)
+        }
+        for (var file : files) {
             includeFile(cursor, null, file);
+        }
         return cursor;
     }
 
@@ -230,15 +248,17 @@ public class DocumentsProvider extends android.provider.DocumentsProvider {
     }
 
     private String copyDocument(String sourceDocumentId, String sourceParentDocumentId, String targetParentDocumentId) throws FileNotFoundException {
-        if (!isChildDocument(sourceParentDocumentId, sourceDocumentId))
+        if (!isChildDocument(sourceParentDocumentId, sourceDocumentId)) {
             throw new FileNotFoundException("Couldn't copy document '" + sourceDocumentId + "' as its parent is not '" + sourceParentDocumentId + "'");
+        }
         return copyDocument(sourceDocumentId, targetParentDocumentId);
     }
 
     private File resolveWithoutConflict(File originalFile, String name) {
         var file = resolve(originalFile, name);
-        if (!file.exists())
+        if (!file.exists()) {
             return file;
+        }
 
         // Makes sure two files don't have the same name by adding a number to the end
         var noConflictId = 1;
@@ -276,13 +296,15 @@ public class DocumentsProvider extends android.provider.DocumentsProvider {
                 .add(DocumentsContract.Document.COLUMN_MIME_TYPE, getTypeForFile(localFile))
                 .add(DocumentsContract.Document.COLUMN_LAST_MODIFIED, localFile.lastModified())
                 .add(DocumentsContract.Document.COLUMN_FLAGS, flags);
-        if (localFile.equals(baseDirectory))
+        if (localFile.equals(baseDirectory)) {
             curorRowBuilder.add(DocumentsContract.Root.COLUMN_ICON, R.mipmap.ic_launcher);
+        }
     }
 
     private String getTypeForFile(File file) {
-        if (file.isDirectory())
+        if (file.isDirectory()) {
             return DocumentsContract.Document.MIME_TYPE_DIR;
+        }
         return getTypeForName(file.getName());
     }
 
@@ -291,8 +313,9 @@ public class DocumentsProvider extends android.provider.DocumentsProvider {
         if (lastDot >= 0) {
             var extension = name.substring(lastDot + 1);
             var mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
-            if (mime != null)
+            if (mime != null) {
                 return mime;
+            }
         }
         return "application/octect-stream";
     }
@@ -301,8 +324,9 @@ public class DocumentsProvider extends android.provider.DocumentsProvider {
         Objects.requireNonNull(documentId);
         if (documentId.startsWith(ROOT_ID)) {
             var file = resolve(baseDirectory, documentId.substring(ROOT_ID.length() + 1));
-            if (!file.exists())
+            if (!file.exists()) {
                 throw new FileNotFoundException(file.getAbsolutePath() + " " + documentId + " not found");
+            }
             return file;
         } else {
             throw new FileNotFoundException(documentId + " is not in any known root");

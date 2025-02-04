@@ -79,7 +79,9 @@ public class GameAdapter extends ListAdapter<Game, GameAdapter.ViewHolder> {
     @Override
     public void onBindViewHolder(@NonNull GameAdapter.ViewHolder holder, int position) {
         Game game = getItem(position);
-        if (game == null) return;
+        if (game == null) {
+            return;
+        }
         holder.icon.setImageBitmap(game.icon());
         holder.favoriteIcon.setVisibility(game.isFavorite() ? View.VISIBLE : View.GONE);
         holder.text.setText(game.name());

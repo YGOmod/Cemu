@@ -240,4 +240,8 @@
     <string name="console_language">Console language</string>
     <string name="emulation_input_text_hint">Input text</string>
     <string name="done">Done</string>
+    <string name="create_shortcut">Create shortcut</string>
+    <string name="shortcut_not_supported">Device doesn\'t support creating shortcuts</string>
+    <string name="enabled_graphic_packs_count">Enabled graphic packs count</string>
+    <string name="graphic_pack_is_enabled">Graphic pack is enabled</string>
 </resources>

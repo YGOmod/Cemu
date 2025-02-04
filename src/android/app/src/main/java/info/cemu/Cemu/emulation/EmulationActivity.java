@@ -14,8 +14,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
-import androidx.lifecycle.Observer;
-import androidx.lifecycle.ViewModelProvider;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
@@ -27,19 +25,21 @@ import info.cemu.Cemu.databinding.ActivityEmulationBinding;
 import info.cemu.Cemu.input.InputManager;
 import info.cemu.Cemu.nativeinterface.NativeSwkbd;
 
-public class EmulationActivity extends AppCompatActivity implements Observer<EmulationData> {
+public class EmulationActivity extends AppCompatActivity {
     private boolean hasEmulationError;
     public static final String EXTRA_LAUNCH_PATH = BuildConfig.APPLICATION_ID + ".LaunchPath";
     private final InputManager inputManager = new InputManager();
     private static EmulationActivity emulationActivityInstance;
     private AlertDialog emulationTextInputDialog;
+
     /**
      * This method is called by swkbd using JNI.
      */
     @SuppressWarnings("unused")
     public static void showEmulationTextInput(String initialText, int maxLength) {
-        if (emulationActivityInstance == null || emulationActivityInstance.emulationTextInputDialog != null)
+        if (emulationActivityInstance == null || emulationActivityInstance.emulationTextInputDialog != null) {
             return;
+        }
         NativeSwkbd.setCurrentInputText(initialText);
         emulationActivityInstance.runOnUiThread(() -> {
             var inputEditTextLayout = emulationActivityInstance.getLayoutInflater().inflate(R.layout.layout_emulation_input, null);
@@ -54,18 +54,21 @@ public class EmulationActivity extends AppCompatActivity implements Observer<Emu
             doneButton.setEnabled(false);
             doneButton.setOnClickListener(v -> inputEditText.onFinishedEdit());
             inputEditText.setOnTextChangedListener(s -> doneButton.setEnabled(s.length() > 0));
-            if (maxLength > 0)
+            if (maxLength > 0) {
                 inputEditText.appendFilter(new InputFilter.LengthFilter(maxLength));
+            }
             emulationActivityInstance.emulationTextInputDialog = dialog;
         });
     }
+
     /**
      * This method is called by swkbd using JNI.
      */
     @SuppressWarnings("unused")
     public static void hideEmulationTextInput() {
-        if (emulationActivityInstance == null || emulationActivityInstance.emulationTextInputDialog == null)
+        if (emulationActivityInstance == null || emulationActivityInstance.emulationTextInputDialog == null) {
             return;
+        }
         var textInputDialog = emulationActivityInstance.emulationTextInputDialog;
         emulationActivityInstance.emulationTextInputDialog = null;
         emulationActivityInstance.runOnUiThread(textInputDialog::dismiss);
@@ -73,15 +76,17 @@ public class EmulationActivity extends AppCompatActivity implements Observer<Emu
 
     @Override
     public boolean onGenericMotionEvent(MotionEvent event) {
-        if (inputManager.onMotionEvent(event))
+        if (inputManager.onMotionEvent(event)) {
             return true;
+        }
         return super.onGenericMotionEvent(event);
     }
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        if (inputManager.onKeyEvent(event))
+        if (inputManager.onKeyEvent(event)) {
             return true;
+        }
         return super.dispatchKeyEvent(event);
     }
 
@@ -96,8 +101,6 @@ public class EmulationActivity extends AppCompatActivity implements Observer<Emu
             }
         });
 
-        EmulationViewModel viewModel = new ViewModelProvider(this).get(EmulationViewModel.class);
-        viewModel.getEmulationData().observe(this, this);
         Intent intent = getIntent();
         Bundle extras = intent.getExtras();
         Uri data = intent.getData();
@@ -112,11 +115,12 @@ public class EmulationActivity extends AppCompatActivity implements Observer<Emu
             throw new RuntimeException("launchPath is null");
         }
         setFullscreen();
-        info.cemu.Cemu.databinding.ActivityEmulationBinding binding = ActivityEmulationBinding.inflate(getLayoutInflater());
+        ActivityEmulationBinding binding = ActivityEmulationBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
         EmulationFragment emulationFragment = (EmulationFragment) getSupportFragmentManager().findFragmentById(R.id.emulation_frame);
         if (emulationFragment == null) {
             emulationFragment = new EmulationFragment(launchPath);
+            emulationFragment.setOnEmulationErrorCallback(this::onEmulationError);
             getSupportFragmentManager()
                     .beginTransaction()
                     .add(R.id.emulation_frame, emulationFragment)
@@ -131,17 +135,19 @@ public class EmulationActivity extends AppCompatActivity implements Observer<Emu
                 .setMessage(R.string.exit_confirm_message)
                 .setPositiveButton(R.string.yes, (dialog, which) -> quit())
                 .setNegativeButton(R.string.no, (dialog, which) -> dialog.cancel())
-                .create()
                 .show();
     }
 
-    private void onEmulationError(EmulationError emulationError) {
+    private void onEmulationError(String emulationError) {
+        if (hasEmulationError) {
+            return;
+        }
+        hasEmulationError = true;
         MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this);
         builder.setTitle(R.string.error)
-                .setMessage(emulationError.errorMessage())
+                .setMessage(emulationError)
                 .setNeutralButton(R.string.quit, (dialog, which) -> dialog.dismiss())
                 .setOnDismissListener(dialog -> quit())
-                .create()
                 .show();
     }
 
@@ -155,13 +161,5 @@ public class EmulationActivity extends AppCompatActivity implements Observer<Emu
     private void quit() {
         finishAffinity();
         System.exit(0);
-    }
-
-    @Override
-    public void onChanged(EmulationData emulationData) {
-        if (emulationData.emulationError().isPresent() && !hasEmulationError) {
-            hasEmulationError = true;
-            onEmulationError(emulationData.emulationError().get());
-        }
     }
 }

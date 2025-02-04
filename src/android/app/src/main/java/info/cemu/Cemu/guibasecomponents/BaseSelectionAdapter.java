@@ -34,8 +34,9 @@ public abstract class BaseSelectionAdapter<T> extends BaseAdapter {
 
     @Override
     public View getView(int position, View view, ViewGroup viewGroup) {
-        if (view == null)
+        if (view == null) {
             view = LayoutInflater.from(viewGroup.getContext()).inflate(R.layout.layout_single_selection_item, viewGroup, false);
+        }
         MaterialRadioButton radioButton = view.findViewById(R.id.single_selection_item_radio_button);
         radioButton.setEnabled(isEnabled(position));
         setRadioButtonText(radioButton, position);

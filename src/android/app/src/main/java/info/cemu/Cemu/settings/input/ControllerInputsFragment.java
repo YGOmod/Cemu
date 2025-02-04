@@ -4,13 +4,15 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -33,7 +35,9 @@ public class ControllerInputsFragment extends Fragment {
     private final EmulatedControllerTypeAdapter emulatedControllerTypeAdapter = new EmulatedControllerTypeAdapter();
 
     private void onTypeChanged(int controllerType) {
-        if (this.controllerType == controllerType) return;
+        if (this.controllerType == controllerType) {
+            return;
+        }
         this.controllerType = controllerType;
         NativeInput.setControllerType(controllerIndex, controllerType);
         genericRecyclerViewAdapter.clearRecyclerViewItems();
@@ -56,30 +60,32 @@ public class ControllerInputsFragment extends Fragment {
                 int buttonId = controllerInput.buttonId;
                 int buttonResourceIdName = controllerInput.buttonResourceIdName;
                 InputRecyclerViewItem inputRecyclerViewItem = new InputRecyclerViewItem(controllerInput.buttonResourceIdName, controllerInput.boundInput, inputItem -> {
-                    MotionDialog inputDialog = new MotionDialog(getContext());
-                    inputDialog.setOnKeyListener((dialog, keyCode, keyEvent) -> {
-                        if (inputManager.mapKeyEventToMappingId(controllerIndex, buttonId, keyEvent)) {
+                    var inputDialog = new MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.inputBindingDialogTitle)
+                            .setMessage(getString(R.string.inputBindingDialogMessage, getString(buttonResourceIdName)))
+                            .setNeutralButton(getString(R.string.clear), (dialogInterface, i) -> {
+                                NativeInput.clearControllerMapping(controllerIndex, buttonId);
+                                inputItem.clearBoundInput();
+                                dialogInterface.dismiss();
+                            })
+                            .setNegativeButton(getString(R.string.cancel), (dialogInterface, i) -> dialogInterface.dismiss())
+                            .show();
+                    TextView messageTextView = inputDialog.requireViewById(android.R.id.message);
+                    messageTextView.setFocusableInTouchMode(true);
+                    messageTextView.requestFocus();
+                    messageTextView.setOnKeyListener((v, keyCode, event) -> {
+                        if (inputManager.mapKeyEventToMappingId(controllerIndex, buttonId, event)) {
                             inputItem.setBoundInput(NativeInput.getControllerMapping(controllerIndex, buttonId));
                             inputDialog.dismiss();
                         }
                         return true;
                     });
-                    inputDialog.setOnMotionListener(motionEvent -> {
-                        if (inputManager.mapMotionEventToMappingId(controllerIndex, buttonId, motionEvent)) {
+                    messageTextView.setOnGenericMotionListener((v, event) -> {
+                        if (inputManager.mapMotionEventToMappingId(controllerIndex, buttonId, event)) {
                             inputItem.setBoundInput(NativeInput.getControllerMapping(controllerIndex, buttonId));
                             inputDialog.dismiss();
                         }
                         return true;
                     });
-                    inputDialog.setMessage(getString(R.string.inputBindingDialogMessage, getString(buttonResourceIdName)));
-                    inputDialog.setButton(AlertDialog.BUTTON_NEUTRAL, getString(R.string.clear), (dialogInterface, i) -> {
-                        NativeInput.clearControllerMapping(controllerIndex, buttonId);
-                        inputItem.clearBoundInput();
-                        dialogInterface.dismiss();
-                    });
-                    inputDialog.setButton(AlertDialog.BUTTON_NEGATIVE, getString(R.string.cancel), (dialogInterface, i) -> dialogInterface.dismiss());
-                    inputDialog.setTitle(R.string.inputBindingDialogTitle);
-                    inputDialog.show();
                 });
                 genericRecyclerViewAdapter.addRecyclerViewItem(inputRecyclerViewItem);
             }
@@ -92,17 +98,19 @@ public class ControllerInputsFragment extends Fragment {
         super.onCreate(savedInstanceState);
         controllerIndex = requireArguments().getInt(CONTROLLER_INDEX);
         ActionBar actionBar = ((AppCompatActivity) requireActivity()).getSupportActionBar();
-        if (actionBar != null)
+        if (actionBar != null) {
             actionBar.setTitle(getString(R.string.controller_numbered, controllerIndex + 1));
-        if (NativeInput.isControllerDisabled(controllerIndex))
+        }
+        if (NativeInput.isControllerDisabled(controllerIndex)) {
             controllerType = NativeInput.EMULATED_CONTROLLER_TYPE_DISABLED;
-        else controllerType = NativeInput.getControllerType(controllerIndex);
+        } else {
+            controllerType = NativeInput.getControllerType(controllerIndex);
+        }
 
         setControllerInputs(NativeInput.getControllerMappings(controllerIndex));
 
         var binding = LayoutGenericRecyclerViewBinding.inflate(inflater, container, false);
         binding.recyclerView.setAdapter(genericRecyclerViewAdapter);
-
         return binding.getRoot();
     }
 }

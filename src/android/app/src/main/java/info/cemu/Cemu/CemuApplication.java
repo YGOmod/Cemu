@@ -26,8 +26,9 @@ public class CemuApplication extends Application {
 
     public File getInternalFolder() {
         var externalFilesDir = getExternalFilesDir(null);
-        if (externalFilesDir != null)
+        if (externalFilesDir != null) {
             return externalFilesDir;
+        }
         return getFilesDir();
     }
 

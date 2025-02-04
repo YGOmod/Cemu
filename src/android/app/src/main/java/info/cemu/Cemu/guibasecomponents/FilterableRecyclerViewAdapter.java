@@ -28,15 +28,17 @@ public class FilterableRecyclerViewAdapter<T extends RecyclerViewItem> extends R
         this.predicate = predicate;
         int oldSize = filteredRecyclerViewItems.size();
         filteredRecyclerViewItems = recyclerViewItems.stream().filter(predicate).collect(Collectors.toList());
-        if (oldSize != filteredRecyclerViewItems.size())
+        if (oldSize != filteredRecyclerViewItems.size()) {
             notifyDataSetChanged();
+        }
     }
 
     public void clearPredicate() {
         int oldSize = filteredRecyclerViewItems.size();
         filteredRecyclerViewItems = new ArrayList<>(recyclerViewItems);
-        if (oldSize != filteredRecyclerViewItems.size())
+        if (oldSize != filteredRecyclerViewItems.size()) {
             notifyDataSetChanged();
+        }
     }
 
     @NonNull

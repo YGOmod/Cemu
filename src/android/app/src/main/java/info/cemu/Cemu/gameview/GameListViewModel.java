@@ -23,6 +23,9 @@ public class GameListViewModel extends ViewModel {
     public GameListViewModel() {
         this.gamesData = new MutableLiveData<>();
         NativeGameTitles.setGameTitleLoadedCallback(game -> {
+            if (!isGameValid(game)) {
+                return;
+            }
             synchronized (GameListViewModel.this) {
                 games.add(game);
                 gamesData.postValue(new ArrayList<>(games));
@@ -30,9 +33,15 @@ public class GameListViewModel extends ViewModel {
         });
     }
 
+    private boolean isGameValid(Game game) {
+        return game.path() != null && game.name() != null;
+    }
+
     public void setGameTitleFavorite(Game game, boolean isFavorite) {
         synchronized (this) {
-            if (!games.contains(game)) return;
+            if (!games.contains(game)) {
+                return;
+            }
             NativeGameTitles.setGameTitleFavorite(game.titleId(), isFavorite);
             games.remove(game);
             Game newGame = new Game(

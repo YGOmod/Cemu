@@ -8,17 +8,47 @@
     android:foreground="?selectableItemBackground"
     android:padding="8dp">
 
-    <ImageView
-        android:id="@+id/graphic_pack_icon"
-        android:layout_width="24dp"
-        android:layout_height="24dp"
-        android:contentDescription="@string/graphic_pack_icon_description"
-        android:src="@drawable/ic_package_2"
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/graphic_pack_icon_layout"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent">
 
-    <TextView
+        <ImageView
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:contentDescription="@string/graphic_pack_icon_description"
+            android:src="@drawable/ic_package_2"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/graphic_pack_enabled_icon"
+            style="?attr/materialCardViewFilledStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="2dp"
+            android:visibility="gone"
+            app:cardCornerRadius="8dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:strokeWidth="0dp">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:contentDescription="@string/graphic_pack_is_enabled"
+                android:src="@drawable/ic_check"
+                app:tint="?android:attr/colorPrimary" />
+        </com.google.android.material.card.MaterialCardView>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+    <com.google.android.material.textview.MaterialTextView
         android:id="@+id/graphic_pack_search_name"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -28,17 +58,17 @@
         android:scrollHorizontally="true"
         android:textSize="16sp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/graphic_pack_icon"
+        app:layout_constraintStart_toEndOf="@+id/graphic_pack_icon_layout"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <TextView
+    <com.google.android.material.textview.MaterialTextView
         android:id="@+id/graphic_pack_search_path"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_margin="8dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/graphic_pack_icon"
+        app:layout_constraintStart_toEndOf="@+id/graphic_pack_icon_layout"
         app:layout_constraintTop_toBottomOf="@+id/graphic_pack_search_name"
         app:layout_constraintWidth_default="spread" />
 

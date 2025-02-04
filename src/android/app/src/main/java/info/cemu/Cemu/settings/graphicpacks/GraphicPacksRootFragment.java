@@ -16,9 +16,9 @@ import androidx.appcompat.widget.SearchView;
 import androidx.core.view.MenuProvider;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.Lifecycle;
-import androidx.lifecycle.ViewModel;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.fragment.NavHostFragment;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.snackbar.Snackbar;
@@ -28,20 +28,17 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 import info.cemu.Cemu.R;
 import info.cemu.Cemu.databinding.LayoutGenericRecyclerViewBinding;
+import info.cemu.Cemu.io.Files;
 import info.cemu.Cemu.guibasecomponents.FilterableRecyclerViewAdapter;
-import info.cemu.Cemu.nativeinterface.FileCallbacks;
 import info.cemu.Cemu.nativeinterface.NativeGameTitles;
 import info.cemu.Cemu.nativeinterface.NativeGraphicPacks;
 import info.cemu.Cemu.zip.Zip;
@@ -52,102 +49,13 @@ import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 
-public class GraphicPacksRootFragment extends Fragment {
-    public abstract static class GraphicPackNode {
-        protected boolean titleIdInstalled;
-        protected String name;
-
-        public boolean hasTitleIdInstalled() {
-            return titleIdInstalled;
-        }
-
-        public String getName() {
-            return name;
-        }
-    }
-
-    public static class GraphicPackDataNode extends GraphicPackNode {
-        private final long id;
-        private final String path;
-
-        public GraphicPackDataNode(long id, String name, String path, boolean hasTitleIdInstalled) {
-            this.id = id;
-            this.name = name;
-            this.path = path;
-            this.titleIdInstalled = hasTitleIdInstalled;
-        }
-
-        public long getId() {
-            return id;
-        }
-
-        public String getPath() {
-            return path;
-        }
-    }
-
-    public static class GraphicPackSectionNode extends GraphicPackNode {
-        ArrayList<GraphicPackNode> children = new ArrayList<>();
-
-        public GraphicPackSectionNode(String name, boolean hasTitleIdInstalled) {
-            this.name = name;
-            this.titleIdInstalled = hasTitleIdInstalled;
-        }
-
-        public GraphicPackSectionNode() {
-        }
-
-        void clear() {
-            children.clear();
-        }
-
-        private void addGraphicPackDataByTokens(List<String> tokens, GraphicPackDataNode dataNode) {
-            var node = this;
-            for (var token : tokens) {
-                node = getOrAddSectionByToken(token, node.children, dataNode.titleIdInstalled);
-            }
-            node.children.add(dataNode);
-        }
-
-        private GraphicPackSectionNode getOrAddSectionByToken(String token, ArrayList<GraphicPackNode> graphicPackNodes, boolean hasTitleIdInstalled) {
-            var sectionNodeOptional = graphicPackNodes.stream()
-                    .filter(g -> (g instanceof GraphicPackSectionNode) && g.name.equals(token))
-                    .findFirst();
-            if (!sectionNodeOptional.isPresent()) {
-                var sectionNode = new GraphicPackSectionNode(token, hasTitleIdInstalled);
-                graphicPackNodes.add(sectionNode);
-                return sectionNode;
-            }
-            return (GraphicPackSectionNode) sectionNodeOptional.get();
-        }
-
-        private void sort() {
-            children.forEach(node -> {
-                if (node instanceof GraphicPackSectionNode sectionNode) sectionNode.sort();
-            });
-            children.sort(Comparator.comparing(o -> o.name));
-        }
-    }
-
-    public static class GraphicPackViewModel extends ViewModel {
-        private GraphicPackNode graphicPackNode;
-
-        public GraphicPackViewModel() {
-        }
-
-        public GraphicPackNode getGraphicPackNode() {
-            return graphicPackNode;
-        }
-
-        public void setGraphicPackNode(GraphicPackNode graphicPackNode) {
-            this.graphicPackNode = graphicPackNode;
-        }
-    }
-
+public class GraphicPacksRootFragment extends Fragment implements MenuProvider {
+    private boolean installedOnly = true;
     private final ArrayList<Long> installedTitleIds = NativeGameTitles.getInstalledGamesTitleIds();
     private final GraphicPackSectionNode graphicPackSectionRootNode = new GraphicPackSectionNode();
-    private final FilterableRecyclerViewAdapter<GraphicPackItemRecyclerViewItem> genericRecyclerViewAdapter = new FilterableRecyclerViewAdapter<>();
+    private final FilterableRecyclerViewAdapter<GraphicPackListItemRecyclerViewItem> genericRecyclerViewAdapter = new FilterableRecyclerViewAdapter<>();
     private GraphicPackViewModel graphicPackViewModel;
+    private RecyclerView recyclerView;
     private final GraphicPacksRecyclerViewAdapter graphicPacksRecyclerViewAdapter = new GraphicPacksRecyclerViewAdapter(graphicPackDataNode -> {
         graphicPackViewModel.setGraphicPackNode(graphicPackDataNode);
         Bundle bundle = new Bundle();
@@ -163,80 +71,99 @@ public class GraphicPacksRootFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         genericRecyclerViewAdapter.setPredicate(g -> g.hasInstalledTitleId);
-        graphicPacksRecyclerViewAdapter.setShowInstalledOnly(true);
+        graphicPacksRecyclerViewAdapter.setShowInstalledOnly(this.installedOnly);
         fillGraphicPacks();
         var navController = NavHostFragment.findNavController(GraphicPacksRootFragment.this);
         graphicPackViewModel = new ViewModelProvider(Objects.requireNonNull(navController.getCurrentBackStackEntry()))
                 .get(GraphicPackViewModel.class);
     }
 
+    @Override
+    public void onCreateMenu(@NonNull Menu menu, @NonNull MenuInflater menuInflater) {
+        menuInflater.inflate(R.menu.graphic_packs, menu);
+        var searchMenuItem = menu.findItem(R.id.action_graphic_packs_search);
+        menu.findItem(R.id.show_installed_games_only).setChecked(installedOnly);
+        SearchView searchView = (SearchView) Objects.requireNonNull(searchMenuItem.getActionView());
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                graphicPacksRecyclerViewAdapter.setFilterText(query);
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                graphicPacksRecyclerViewAdapter.setFilterText(newText);
+                return true;
+            }
+        });
+        searchMenuItem.setOnActionExpandListener(new MenuItem.OnActionExpandListener() {
+            @Override
+            public boolean onMenuItemActionExpand(@NonNull MenuItem item) {
+                if (recyclerView == null) {
+                    return true;
+                }
+                recyclerView.setAdapter(graphicPacksRecyclerViewAdapter);
+                return true;
+            }
+
+            @Override
+            public boolean onMenuItemActionCollapse(@NonNull MenuItem item) {
+                if (recyclerView == null) {
+                    return true;
+                }
+                recyclerView.setAdapter(genericRecyclerViewAdapter);
+                return true;
+            }
+        });
+    }
+
+    private void showInstalledOnly(boolean installedOnly) {
+        this.installedOnly = installedOnly;
+        if (installedOnly) {
+            genericRecyclerViewAdapter.setPredicate(g -> g.hasInstalledTitleId);
+            return;
+        }
+        genericRecyclerViewAdapter.clearPredicate();
+    }
+
+    @Override
+    public boolean onMenuItemSelected(@NonNull MenuItem menuItem) {
+        if (menuItem.getItemId() == R.id.action_graphic_packs_download && !updateInProgress) {
+            checkForUpdates();
+            return true;
+        }
+        if (menuItem.getItemId() == R.id.action_graphic_packs_search) {
+            return true;
+        }
+        if (menuItem.getItemId() == R.id.show_installed_games_only) {
+            boolean installedOnly = !menuItem.isChecked();
+            graphicPacksRecyclerViewAdapter.setShowInstalledOnly(installedOnly);
+            menuItem.setChecked(installedOnly);
+            showInstalledOnly(installedOnly);
+            return true;
+        }
+        return false;
+    }
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         var binding = LayoutGenericRecyclerViewBinding.inflate(inflater, container, false);
-        binding.recyclerView.setAdapter(this.genericRecyclerViewAdapter);
-        requireActivity().addMenuProvider(new MenuProvider() {
-            @Override
-            public void onCreateMenu(@NonNull Menu menu, @NonNull MenuInflater menuInflater) {
-                menuInflater.inflate(R.menu.graphic_packs, menu);
-                var searchMenuItem = menu.findItem(R.id.action_graphic_packs_search);
-                SearchView searchView = (SearchView) Objects.requireNonNull(searchMenuItem.getActionView());
-                searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
-                    @Override
-                    public boolean onQueryTextSubmit(String query) {
-                        graphicPacksRecyclerViewAdapter.setFilterText(query);
-                        return true;
-                    }
-
-                    @Override
-                    public boolean onQueryTextChange(String newText) {
-                        graphicPacksRecyclerViewAdapter.setFilterText(newText);
-                        return true;
-                    }
-                });
-                searchMenuItem.setOnActionExpandListener(new MenuItem.OnActionExpandListener() {
-                    @Override
-                    public boolean onMenuItemActionExpand(@NonNull MenuItem item) {
-                        binding.recyclerView.setAdapter(graphicPacksRecyclerViewAdapter);
-                        return true;
-                    }
-
-                    @Override
-                    public boolean onMenuItemActionCollapse(@NonNull MenuItem item) {
-                        binding.recyclerView.setAdapter(genericRecyclerViewAdapter);
-                        return true;
-                    }
-                });
-            }
-
-            private void showInstalledOnly(boolean installedOnly) {
-                if (installedOnly) {
-                    genericRecyclerViewAdapter.setPredicate(g -> g.hasInstalledTitleId);
-                    return;
-                }
-                genericRecyclerViewAdapter.clearPredicate();
-            }
-
-            @Override
-            public boolean onMenuItemSelected(@NonNull MenuItem menuItem) {
-                if (menuItem.getItemId() == R.id.action_graphic_packs_download && !updateInProgress) {
-                    checkForUpdates();
-                    return true;
-                }
-                if (menuItem.getItemId() == R.id.action_graphic_packs_search) {
-                    return true;
-                }
-                if (menuItem.getItemId() == R.id.show_installed_games_only) {
-                    boolean installedOnly = !menuItem.isChecked();
-                    graphicPacksRecyclerViewAdapter.setShowInstalledOnly(installedOnly);
-                    menuItem.setChecked(installedOnly);
-                    showInstalledOnly(installedOnly);
-                    return true;
-                }
-                return false;
-            }
-        }, getViewLifecycleOwner(), Lifecycle.State.RESUMED);
+        recyclerView = binding.recyclerView;
+        recyclerView.setAdapter(genericRecyclerViewAdapter);
+        requireActivity().addMenuProvider(this, getViewLifecycleOwner(), Lifecycle.State.RESUMED);
         return binding.getRoot();
+    }
+
+    private void setDataNodes(List<GraphicPackDataNode> graphicPackDataNodes, GraphicPackSectionNode graphicPackSectionNode) {
+        for (var node : graphicPackSectionNode.getChildren()) {
+            if (node instanceof GraphicPackSectionNode sectionNode) {
+                setDataNodes(graphicPackDataNodes, sectionNode);
+            } else if (node instanceof GraphicPackDataNode dataNode) {
+                graphicPackDataNodes.add(dataNode);
+            }
+        }
     }
 
     private void fillGraphicPacks() {
@@ -244,23 +171,17 @@ public class GraphicPacksRootFragment extends Fragment {
         graphicPackSectionRootNode.clear();
         List<GraphicPackDataNode> graphicPackDataNodes = new ArrayList<>();
         nativeGraphicPacks.forEach(graphicPack -> {
-            var tokens = Arrays.asList(graphicPack.virtualPath().split("/"));
             boolean hasTitleIdInstalled = graphicPack.titleIds().stream().anyMatch(installedTitleIds::contains);
-            var dataNode = new GraphicPackDataNode(graphicPack.id(), tokens.get(tokens.size() - 1), graphicPack.virtualPath(), hasTitleIdInstalled);
-            graphicPackDataNodes.add(dataNode);
-            graphicPackSectionRootNode.addGraphicPackDataByTokens(tokens.subList(0, tokens.size() - 1), dataNode);
+            graphicPackSectionRootNode.addGraphicPackDataByTokens(graphicPack, hasTitleIdInstalled);
         });
+
+        setDataNodes(graphicPackDataNodes, graphicPackSectionRootNode);
         graphicPacksRecyclerViewAdapter.setItems(graphicPackDataNodes);
 
         genericRecyclerViewAdapter.clearRecyclerViewItems();
         graphicPackSectionRootNode.sort();
-        graphicPackSectionRootNode.children.forEach(node -> {
-            var graphicPackItemType = node instanceof GraphicPackSectionNode
-                    ? GraphicPackItemRecyclerViewItem.GraphicPackItemType.SECTION
-                    : GraphicPackItemRecyclerViewItem.GraphicPackItemType.GRAPHIC_PACK;
-            GraphicPackItemRecyclerViewItem graphicPackItemRecyclerViewItem = new GraphicPackItemRecyclerViewItem(node.name,
-                    node.hasTitleIdInstalled(),
-                    graphicPackItemType,
+        graphicPackSectionRootNode.getChildren().forEach(node -> {
+            GraphicPackListItemRecyclerViewItem graphicPackItemRecyclerViewItem = new GraphicPackListItemRecyclerViewItem(node,
                     () -> {
                         graphicPackViewModel.setGraphicPackNode(node);
                         Bundle bundle = new Bundle();
@@ -301,7 +222,9 @@ public class GraphicPacksRootFragment extends Fragment {
 
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
-                if (!call.isCanceled()) onDownloadError(dialog);
+                if (!call.isCanceled()) {
+                    onDownloadError(dialog);
+                }
             }
         });
     }
@@ -312,7 +235,7 @@ public class GraphicPacksRootFragment extends Fragment {
                 "downloadedGraphicPacks",
                 "version.txt");
         try {
-            return Optional.of(new String(Files.readAllBytes(graphicPacksVersionFile)));
+            return Optional.of(new String(java.nio.file.Files.readAllBytes(graphicPacksVersionFile)));
         } catch (IOException ignored) {
             return Optional.empty();
         }
@@ -329,12 +252,12 @@ public class GraphicPacksRootFragment extends Fragment {
             public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
                 try (ResponseBody responseBody = response.body()) {
                     Path graphicPacksTempDirPath = graphicPacksDirPath.resolve("downloadedGraphicPacksTemp");
-                    FileCallbacks.delete(graphicPacksTempDirPath);
+                    Files.delete(graphicPacksTempDirPath.toFile());
                     Zip.unzip(Objects.requireNonNull(responseBody).byteStream(), graphicPacksTempDirPath.toString());
-                    Files.write(graphicPacksTempDirPath.resolve("version.txt"), version.getBytes(StandardCharsets.UTF_8));
+                    java.nio.file.Files.write(graphicPacksTempDirPath.resolve("version.txt"), version.getBytes(StandardCharsets.UTF_8));
                     Path downloadedGraphicPacksDirPath = graphicPacksDirPath.resolve("downloadedGraphicPacks");
-                    FileCallbacks.delete(downloadedGraphicPacksDirPath);
-                    Files.move(graphicPacksTempDirPath, downloadedGraphicPacksDirPath);
+                    Files.delete(downloadedGraphicPacksDirPath.toFile());
+                    java.nio.file.Files.move(graphicPacksTempDirPath, downloadedGraphicPacksDirPath);
                     NativeGraphicPacks.refreshGraphicPacks();
                     requireActivity().runOnUiThread(() -> fillGraphicPacks());
                     onDownloadFinish(dialog);
@@ -343,7 +266,9 @@ public class GraphicPacksRootFragment extends Fragment {
 
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
-                if (!call.isCanceled()) onDownloadError(dialog);
+                if (!call.isCanceled()) {
+                    onDownloadError(dialog);
+                }
             }
         });
     }

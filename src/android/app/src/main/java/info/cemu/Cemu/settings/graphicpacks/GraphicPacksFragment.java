@@ -25,17 +25,17 @@ import info.cemu.Cemu.nativeinterface.NativeGraphicPacks;
 
 public class GraphicPacksFragment extends Fragment {
     private final GenericRecyclerViewAdapter genericRecyclerViewAdapter = new GenericRecyclerViewAdapter();
-    private GraphicPacksRootFragment.GraphicPackViewModel graphicPackPreviousViewModel;
-    private GraphicPacksRootFragment.GraphicPackViewModel graphicPackCurrentViewModel;
+    private GraphicPackViewModel graphicPackPreviousViewModel;
+    private GraphicPackViewModel graphicPackCurrentViewModel;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         NavController navController = NavHostFragment.findNavController(this);
         graphicPackPreviousViewModel = new ViewModelProvider(Objects.requireNonNull(navController.getPreviousBackStackEntry()))
-                .get(GraphicPacksRootFragment.GraphicPackViewModel.class);
+                .get(GraphicPackViewModel.class);
         graphicPackCurrentViewModel = new ViewModelProvider(Objects.requireNonNull(navController.getCurrentBackStackEntry()))
-                .get(GraphicPacksRootFragment.GraphicPackViewModel.class);
+                .get(GraphicPackViewModel.class);
         fillData();
     }
 
@@ -50,21 +50,16 @@ public class GraphicPacksFragment extends Fragment {
 
     private void fillData() {
         var graphicNode = graphicPackPreviousViewModel.getGraphicPackNode();
-        if (graphicNode instanceof GraphicPacksRootFragment.GraphicPackSectionNode sectionNode) {
+        if (graphicNode instanceof GraphicPackSectionNode sectionNode) {
             fillData(sectionNode);
-        } else if (graphicNode instanceof GraphicPacksRootFragment.GraphicPackDataNode dataNode) {
+        } else if (graphicNode instanceof GraphicPackDataNode dataNode) {
             fillData(dataNode);
         }
     }
 
-    private void fillData(GraphicPacksRootFragment.GraphicPackSectionNode graphicPackSectionNode) {
-        graphicPackSectionNode.children.forEach(node -> {
-            var graphicPackItemType = node instanceof GraphicPacksRootFragment.GraphicPackSectionNode
-                    ? GraphicPackItemRecyclerViewItem.GraphicPackItemType.SECTION
-                    : GraphicPackItemRecyclerViewItem.GraphicPackItemType.GRAPHIC_PACK;
-            GraphicPackItemRecyclerViewItem graphicPackItemRecyclerViewItem = new GraphicPackItemRecyclerViewItem(node.name,
-                    node.hasTitleIdInstalled(),
-                    graphicPackItemType,
+    private void fillData(GraphicPackSectionNode graphicPackSectionNode) {
+        graphicPackSectionNode.getChildren().forEach(node -> {
+            GraphicPackListItemRecyclerViewItem graphicPackItemRecyclerViewItem = new GraphicPackListItemRecyclerViewItem(node,
                     () -> {
                         graphicPackCurrentViewModel.setGraphicPackNode(node);
                         Bundle bundle = new Bundle();
@@ -76,10 +71,10 @@ public class GraphicPacksFragment extends Fragment {
         });
     }
 
-    private void fillData(GraphicPacksRootFragment.GraphicPackDataNode graphicPackDataNode) {
+    private void fillData(GraphicPackDataNode graphicPackDataNode) {
         genericRecyclerViewAdapter.clearRecyclerViewItems();
         var graphicPack = NativeGraphicPacks.getGraphicPack(graphicPackDataNode.getId());
-        genericRecyclerViewAdapter.addRecyclerViewItem(new GraphicPackRecyclerViewItem(graphicPack));
+        genericRecyclerViewAdapter.addRecyclerViewItem(new GraphicPackRecyclerViewItem(graphicPack, graphicPackDataNode::setEnabled));
         fillPresets(graphicPack);
     }
 
@@ -88,7 +83,9 @@ public class GraphicPacksFragment extends Fragment {
         IntStream.range(0, graphicPack.presets.size()).forEach(index -> {
             var graphicPackPreset = graphicPack.presets.get(index);
             String category = graphicPackPreset.getCategory();
-            if (category == null) category = getString(R.string.active_preset_category);
+            if (category == null) {
+                category = getString(R.string.active_preset_category);
+            }
             var recyclerViewItem = new SingleSelectionRecyclerViewItem<>(
                     category,
                     graphicPackPreset.getActivePreset(),

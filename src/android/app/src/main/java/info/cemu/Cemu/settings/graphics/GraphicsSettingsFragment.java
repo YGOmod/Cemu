@@ -32,8 +32,7 @@ public class GraphicsSettingsFragment extends Fragment {
         int resourceId = switch (fullscreenScaling) {
             case NativeSettings.FULLSCREEN_SCALING_KEEP_ASPECT_RATIO -> R.string.keep_aspect_ratio;
             case NativeSettings.FULLSCREEN_SCALING_STRETCH -> R.string.stretch;
-            default ->
-                    throw new IllegalArgumentException("Invalid fullscreen scaling mode:  " + fullscreenScaling);
+            default -> throw new IllegalArgumentException("Invalid fullscreen scaling mode:  " + fullscreenScaling);
         };
         return getString(resourceId);
     }
@@ -44,8 +43,7 @@ public class GraphicsSettingsFragment extends Fragment {
             case NativeSettings.SCALING_FILTER_BICUBIC_FILTER -> R.string.bicubic;
             case NativeSettings.SCALING_FILTER_BICUBIC_HERMITE_FILTER -> R.string.hermite;
             case NativeSettings.SCALING_FILTER_NEAREST_NEIGHBOR_FILTER -> R.string.nearest_neighbor;
-            default ->
-                    throw new IllegalArgumentException("Invalid scaling filter:  " + scalingFilter);
+            default -> throw new IllegalArgumentException("Invalid scaling filter:  " + scalingFilter);
         };
         return getString(resourceId);
     }

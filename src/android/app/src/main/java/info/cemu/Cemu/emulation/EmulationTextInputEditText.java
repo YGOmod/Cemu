@@ -35,18 +35,21 @@ public class EmulationTextInputEditText extends TextInputEditText {
 
     public void updateText(String text) {
         boolean hasFocus = hasFocus();
-        if (hasFocus)
+        if (hasFocus) {
             clearFocus();
+        }
         setText(text);
-        if (hasFocus)
+        if (hasFocus) {
             requestFocus();
+        }
     }
 
     public EmulationTextInputEditText(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         appendFilter((source, start, end, dest, dstart, dend) -> {
-            if (INPUT_PATTERN.matcher(source).matches())
+            if (INPUT_PATTERN.matcher(source).matches()) {
                 return null;
+            }
             return "";
         });
         setInputType(EditorInfo.TYPE_CLASS_TEXT | EditorInfo.TYPE_TEXT_VARIATION_NORMAL);
@@ -57,10 +60,12 @@ public class EmulationTextInputEditText extends TextInputEditText {
 
             @Override
             public void onTextChanged(CharSequence text, int start, int before, int count) {
-                if (!hasFocus())
+                if (!hasFocus()) {
                     return;
-                if (onTextChangedListener != null)
+                }
+                if (onTextChangedListener != null) {
                     onTextChangedListener.onTextChanged(text);
+                }
                 NativeSwkbd.onTextChanged(text.toString());
             }
 

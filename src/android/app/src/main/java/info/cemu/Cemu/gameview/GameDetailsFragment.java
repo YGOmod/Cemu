@@ -23,7 +23,7 @@ import info.cemu.Cemu.nativeinterface.NativeGameTitles;
 import info.cemu.Cemu.nativeinterface.NativeGameTitles.Game;
 
 public class GameDetailsFragment extends Fragment {
-    private static final DateTimeFormatter dateFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT);
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT);
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -31,10 +31,12 @@ public class GameDetailsFragment extends Fragment {
         var game = new ViewModelProvider(requireActivity()).get(GameViewModel.class).getGame();
         binding.gameTitleName.setText(game.name());
         binding.titleVersion.setText(String.valueOf(game.version()));
-        if (game.icon() != null)
+        if (game.icon() != null) {
             binding.titleIcon.setImageBitmap(game.icon());
-        if (game.dlc() != 0)
+        }
+        if (game.dlc() != 0) {
             binding.titleDlc.setText(String.valueOf(game.dlc()));
+        }
         binding.titleTimePlayed.setText(getTimePlayed(game));
         binding.titleLastPlayed.setText(getLastPlayedDate(game));
         binding.titleId.setText(String.format("%016x", game.titleId()));
@@ -44,15 +46,20 @@ public class GameDetailsFragment extends Fragment {
     }
 
     private String getLastPlayedDate(Game game) {
-        if (game.lastPlayedYear() == 0) return getString(R.string.never_played);
+        if (game.lastPlayedYear() == 0) {
+            return getString(R.string.never_played);
+        }
         LocalDate lastPlayedDate = LocalDate.of(game.lastPlayedYear(), game.lastPlayedMonth(), game.lastPlayedDay());
-        return dateFormatter.format(lastPlayedDate);
+        return DATE_FORMATTER.format(lastPlayedDate);
     }
 
     private String getTimePlayed(Game game) {
-        if (game.minutesPlayed() == 0) return getString(R.string.never_played);
-        if (game.minutesPlayed() < 60)
+        if (game.minutesPlayed() == 0) {
+            return getString(R.string.never_played);
+        }
+        if (game.minutesPlayed() < 60) {
             return getString(R.string.minutes_played, game.minutesPlayed());
+        }
         return getString(R.string.hours_minutes_played, game.minutesPlayed() / 60, game.minutesPlayed() % 60);
     }
 

@@ -12,9 +12,7 @@ public class SensorManager implements SensorEventListener {
     private final Sensor accelerometer;
     private final Sensor gyroscope;
     private final boolean hasMotionData;
-    private float gyroX, gyroY, gyroZ;
     private float accelX, accelY, accelZ;
-    private boolean hasAccelData, hasGyroData;
     private boolean isLandscape = true;
 
     public SensorManager(Context context) {
@@ -51,19 +49,14 @@ public class SensorManager implements SensorEventListener {
             accelX = event.values[0];
             accelY = event.values[1];
             accelZ = event.values[2];
-            hasAccelData = true;
-        }
-        if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
-            gyroX = event.values[0];
-            gyroY = event.values[1];
-            gyroZ = event.values[2];
-            hasGyroData = true;
-        }
-        if (!hasAccelData || !hasGyroData) {
             return;
         }
-        hasAccelData = false;
-        hasGyroData = false;
+        if (event.sensor.getType() != Sensor.TYPE_GYROSCOPE) {
+            return;
+        }
+        float gyroX = event.values[0];
+        float gyroY = event.values[1];
+        float gyroZ = event.values[2];
         if (isLandscape) {
             NativeInput.onMotion(event.timestamp, gyroY, gyroZ, gyroX, accelY, accelZ, accelX);
             return;

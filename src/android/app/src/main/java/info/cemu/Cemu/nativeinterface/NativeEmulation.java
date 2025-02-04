@@ -15,7 +15,7 @@ public class NativeEmulation {
 
     public static native void setSurfaceSize(int width, int height, boolean isMainCanvas);
 
-    public static native void initializerRenderer(Surface surface);
+    public static native void initializeRenderer(Surface surface);
 
     public static final int START_GAME_SUCCESSFUL = 0;
     public static final int START_GAME_ERROR_GAME_BASE_FILES_NOT_FOUND = 1;

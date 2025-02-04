@@ -181,13 +181,15 @@ Java_info_cemu_Cemu_nativeinterface_NativeEmulation_initializeEmulation([[maybe_
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_Cemu_nativeinterface_NativeEmulation_initializerRenderer(JNIEnv* env, [[maybe_unused]] jclass clazz, jobject testSurface)
+Java_info_cemu_Cemu_nativeinterface_NativeEmulation_initializeRenderer(JNIEnv* env, [[maybe_unused]] jclass clazz, jobject j_testSurface)
 {
 	JNIUtils::handleNativeException(env, [&]() {
-		cemu_assert_debug(testSurface != nullptr);
-		// TODO: cleanup surface
-		GuiSystem::getWindowInfo().window_main.surface = ANativeWindow_fromSurface(env, testSurface);
+		cemu_assert_debug(j_testSurface != nullptr);
+		ANativeWindow* testSurface = ANativeWindow_fromSurface(env, j_testSurface);
+		GuiSystem::getWindowInfo().window_main.surface = testSurface;
 		g_renderer = std::make_unique<VulkanRenderer>();
+		GuiSystem::getWindowInfo().window_main.surface = nullptr;
+		ANativeWindow_release(testSurface);
 	});
 }
 

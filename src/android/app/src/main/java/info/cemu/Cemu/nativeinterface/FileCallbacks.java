@@ -7,11 +7,11 @@ import android.provider.DocumentsContract;
 import android.util.Log;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 
 import info.cemu.Cemu.CemuApplication;
+import info.cemu.Cemu.io.Files;
 
 public class FileCallbacks {
     private static final String PATH_SEPARATOR_ENCODED = "%2F";
@@ -22,15 +22,17 @@ public class FileCallbacks {
     private static String toCppPath(Uri uri) {
         String uriPath = uri.toString();
         int delimiterPos = uriPath.lastIndexOf(COLON_ENCODED);
-        if (delimiterPos == -1)
+        if (delimiterPos == -1) {
             return uriPath;
+        }
         return uriPath.substring(0, delimiterPos) + uriPath.substring(delimiterPos).replace(PATH_SEPARATOR_ENCODED, PATH_SEPARATOR_DECODED);
     }
 
     private static Uri fromCppPath(String cppPath) {
         int delimiterPos = cppPath.lastIndexOf(COLON_ENCODED);
-        if (delimiterPos == -1)
+        if (delimiterPos == -1) {
             return Uri.parse(cppPath);
+        }
         return Uri.parse(cppPath.substring(0, delimiterPos) + cppPath.substring(delimiterPos).replace(PATH_SEPARATOR_DECODED, PATH_SEPARATOR_ENCODED));
     }
 
@@ -89,25 +91,7 @@ public class FileCallbacks {
 
     public static void delete(Path fileToDelete) {
         try {
-            if (!Files.exists(fileToDelete)) {
-                return;
-            }
-            if (Files.isRegularFile(fileToDelete)) {
-                Files.delete(fileToDelete);
-                return;
-            }
-            var files = Files.list(fileToDelete);
-            files.forEach(path -> {
-                if (Files.isDirectory(path)) {
-                    delete(path);
-                }
-                try {
-                    Files.delete(path);
-                } catch (IOException ignored) {
-                }
-            });
-            files.close();
-            Files.delete(fileToDelete);
+            Files.delete(fileToDelete.toFile());
         } catch (IOException ignored) {
         }
     }

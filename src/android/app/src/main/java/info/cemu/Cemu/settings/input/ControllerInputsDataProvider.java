@@ -39,8 +39,7 @@ public class ControllerInputsDataProvider {
                 case NativeInput.VPAD_BUTTON_MIC -> R.string.button_mic;
                 case NativeInput.VPAD_BUTTON_SCREEN -> R.string.button_screen;
                 case NativeInput.VPAD_BUTTON_HOME -> R.string.button_home;
-                default ->
-                        throw new IllegalArgumentException("Invalid buttonId " + buttonId + " for controllerType " + controllerType);
+                default -> throw new IllegalArgumentException("Invalid buttonId " + buttonId + " for controllerType " + controllerType);
             };
         }
         if (controllerType == NativeInput.EMULATED_CONTROLLER_TYPE_PRO) {
@@ -70,8 +69,7 @@ public class ControllerInputsDataProvider {
                 case NativeInput.PRO_BUTTON_STICKR_DOWN -> R.string.button_stickr_down;
                 case NativeInput.PRO_BUTTON_STICKR_LEFT -> R.string.button_stickr_left;
                 case NativeInput.PRO_BUTTON_STICKR_RIGHT -> R.string.button_stickr_right;
-                default ->
-                        throw new IllegalArgumentException("Invalid buttonId " + buttonId + " for controllerType " + controllerType);
+                default -> throw new IllegalArgumentException("Invalid buttonId " + buttonId + " for controllerType " + controllerType);
             };
         }
         if (controllerType == NativeInput.EMULATED_CONTROLLER_TYPE_CLASSIC) {
@@ -99,8 +97,7 @@ public class ControllerInputsDataProvider {
                 case NativeInput.CLASSIC_BUTTON_STICKR_DOWN -> R.string.button_stickr_down;
                 case NativeInput.CLASSIC_BUTTON_STICKR_LEFT -> R.string.button_stickr_left;
                 case NativeInput.CLASSIC_BUTTON_STICKR_RIGHT -> R.string.button_stickr_right;
-                default ->
-                        throw new IllegalArgumentException("Invalid buttonId " + buttonId + " for controllerType " + controllerType);
+                default -> throw new IllegalArgumentException("Invalid buttonId " + buttonId + " for controllerType " + controllerType);
             };
         }
         if (controllerType == NativeInput.EMULATED_CONTROLLER_TYPE_WIIMOTE) {
@@ -122,8 +119,7 @@ public class ControllerInputsDataProvider {
                 case NativeInput.WIIMOTE_BUTTON_NUNCHUCK_LEFT -> R.string.button_nunchuck_left;
                 case NativeInput.WIIMOTE_BUTTON_NUNCHUCK_RIGHT -> R.string.button_nunchuck_right;
                 case NativeInput.WIIMOTE_BUTTON_HOME -> R.string.button_home;
-                default ->
-                        throw new IllegalArgumentException("Invalid buttonId " + buttonId + " for controllerType " + controllerType);
+                default -> throw new IllegalArgumentException("Invalid buttonId " + buttonId + " for controllerType " + controllerType);
             };
         }
         throw new IllegalArgumentException("Invalid controllerType " + controllerType);

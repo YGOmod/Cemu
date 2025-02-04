@@ -20,14 +20,13 @@ import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.appcompat.widget.PopupMenu;
 import androidx.fragment.app.Fragment;
-import androidx.lifecycle.ViewModelProvider;
 
-import info.cemu.Cemu.nativeinterface.NativeEmulation;
 import info.cemu.Cemu.R;
 import info.cemu.Cemu.databinding.FragmentEmulationBinding;
 import info.cemu.Cemu.input.SensorManager;
 import info.cemu.Cemu.inputoverlay.InputOverlaySettingsProvider;
 import info.cemu.Cemu.inputoverlay.InputOverlaySurfaceView;
+import info.cemu.Cemu.nativeinterface.NativeEmulation;
 import info.cemu.Cemu.nativeinterface.NativeException;
 import info.cemu.Cemu.nativeinterface.NativeInput;
 
@@ -102,43 +101,48 @@ public class EmulationFragment extends Fragment implements PopupMenu.OnMenuItemC
         }
     }
 
+    public interface OnEmulationErrorCallback {
+        void onEmulationError(String errorMessage);
+    }
+
     private final String launchPath;
     private boolean isGameRunning;
     private SurfaceView padCanvas;
-    private SurfaceTexture testSurfaceTexture;
-    private Surface testSurface;
     private Toast toast;
     private FragmentEmulationBinding binding;
     private boolean isMotionEnabled;
     private PopupMenu settingsMenu;
     private InputOverlaySurfaceView inputOverlaySurfaceView;
     private SensorManager sensorManager;
-    private EmulationViewModel viewModel;
+    private OnEmulationErrorCallback onEmulationErrorCallback;
     private boolean hasEmulationError;
+    private InputOverlaySettingsProvider.OverlaySettings overlaySettings;
 
     public EmulationFragment(String launchPath) {
         this.launchPath = launchPath;
     }
 
-    InputOverlaySettingsProvider.OverlaySettings overlaySettings;
+    public void setOnEmulationErrorCallback(OnEmulationErrorCallback onEmulationErrorCallback) {
+        this.onEmulationErrorCallback = onEmulationErrorCallback;
+    }
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         var inputOverlaySettingsProvider = new InputOverlaySettingsProvider(requireContext());
-        if (sensorManager == null)
+        if (sensorManager == null) {
             sensorManager = new SensorManager(requireContext());
+        }
         sensorManager.setIsLandscape(getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE);
         overlaySettings = inputOverlaySettingsProvider.getOverlaySettings();
-        testSurfaceTexture = new SurfaceTexture(0);
-        testSurface = new Surface(testSurfaceTexture);
     }
 
     @Override
     public void onConfigurationChanged(@NonNull Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-        if (sensorManager != null)
+        if (sensorManager != null) {
             sensorManager.setIsLandscape(newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE);
+        }
     }
 
     @Override
@@ -150,21 +154,23 @@ public class EmulationFragment extends Fragment implements PopupMenu.OnMenuItemC
     @Override
     public void onResume() {
         super.onResume();
-        if (isMotionEnabled)
+        if (isMotionEnabled) {
             sensorManager.startListening();
+        }
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (sensorManager != null)
+        if (sensorManager != null) {
             sensorManager.pauseListening();
-        if (testSurface != null) testSurface.release();
-        if (testSurfaceTexture != null) testSurfaceTexture.release();
+        }
     }
 
     private void createPadCanvas() {
-        if (padCanvas != null) return;
+        if (padCanvas != null) {
+            return;
+        }
         padCanvas = new SurfaceView(requireContext());
         binding.canvasesLayout.addView(
                 padCanvas,
@@ -183,7 +189,9 @@ public class EmulationFragment extends Fragment implements PopupMenu.OnMenuItemC
     }
 
     private void destroyPadCanvas() {
-        if (padCanvas == null) return;
+        if (padCanvas == null) {
+            return;
+        }
         binding.canvasesLayout.removeView(padCanvas);
         padCanvas = null;
     }
@@ -223,10 +231,11 @@ public class EmulationFragment extends Fragment implements PopupMenu.OnMenuItemC
         }
         if (itemId == R.id.enable_motion) {
             isMotionEnabled = !item.isChecked();
-            if (isMotionEnabled)
+            if (isMotionEnabled) {
                 sensorManager.startListening();
-            else
+            } else {
                 sensorManager.pauseListening();
+            }
             item.setChecked(isMotionEnabled);
             return true;
         }
@@ -248,22 +257,22 @@ public class EmulationFragment extends Fragment implements PopupMenu.OnMenuItemC
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        viewModel = new ViewModelProvider(requireActivity()).get(EmulationViewModel.class);
-
         binding = FragmentEmulationBinding.inflate(inflater, container, false);
         inputOverlaySurfaceView = binding.inputOverlay;
 
         binding.moveInputsButton.setOnClickListener(v -> {
-            if (inputOverlaySurfaceView.getInputMode() == InputOverlaySurfaceView.InputMode.EDIT_POSITION)
+            if (inputOverlaySurfaceView.getInputMode() == InputOverlaySurfaceView.InputMode.EDIT_POSITION) {
                 return;
+            }
             binding.resizeInputsButton.setAlpha(0.5f);
             binding.moveInputsButton.setAlpha(1.0f);
             toastMessage(R.string.input_mode_edit_position);
             inputOverlaySurfaceView.setInputMode(InputOverlaySurfaceView.InputMode.EDIT_POSITION);
         });
         binding.resizeInputsButton.setOnClickListener(v -> {
-            if (inputOverlaySurfaceView.getInputMode() == InputOverlaySurfaceView.InputMode.EDIT_SIZE)
+            if (inputOverlaySurfaceView.getInputMode() == InputOverlaySurfaceView.InputMode.EDIT_SIZE) {
                 return;
+            }
             binding.moveInputsButton.setAlpha(0.5f);
             binding.resizeInputsButton.setAlpha(1.0f);
             toastMessage(R.string.input_mode_edit_size);
@@ -288,7 +297,11 @@ public class EmulationFragment extends Fragment implements PopupMenu.OnMenuItemC
         }
         SurfaceView mainCanvas = binding.mainCanvas;
         try {
-            NativeEmulation.initializerRenderer(testSurface);
+            SurfaceTexture testSurfaceTexture = new SurfaceTexture(0);
+            Surface testSurface = new Surface(testSurfaceTexture);
+            NativeEmulation.initializeRenderer(testSurface);
+            testSurface.release();
+            testSurfaceTexture.release();
         } catch (NativeException exception) {
             onEmulationError(getString(R.string.failed_initialize_renderer_error, exception.getMessage()));
             return binding.getRoot();
@@ -303,8 +316,9 @@ public class EmulationFragment extends Fragment implements PopupMenu.OnMenuItemC
 
             @Override
             public void surfaceChanged(@NonNull SurfaceHolder holder, int format, int width, int height) {
-                if (hasEmulationError)
+                if (hasEmulationError) {
                     return;
+                }
                 if (!isGameRunning) {
                     isGameRunning = true;
                     startGame();
@@ -321,22 +335,22 @@ public class EmulationFragment extends Fragment implements PopupMenu.OnMenuItemC
 
     private void startGame() {
         int result = NativeEmulation.startGame(launchPath);
-        if (result == NativeEmulation.START_GAME_SUCCESSFUL)
+        if (result == NativeEmulation.START_GAME_SUCCESSFUL) {
             return;
-        int errorMessageId = switch (result) {
-            case NativeEmulation.START_GAME_ERROR_GAME_BASE_FILES_NOT_FOUND ->
-                    R.string.game_not_found;
-            case NativeEmulation.START_GAME_ERROR_NO_DISC_KEY -> R.string.no_disk_key;
-            case NativeEmulation.START_GAME_ERROR_NO_TITLE_TIK -> R.string.no_title_tik;
-            default -> R.string.game_files_unknown_error;
+        }
+        String errorMessage = switch (result) {
+            case NativeEmulation.START_GAME_ERROR_GAME_BASE_FILES_NOT_FOUND -> getString(R.string.game_not_found);
+            case NativeEmulation.START_GAME_ERROR_NO_DISC_KEY -> getString(R.string.no_disk_key);
+            case NativeEmulation.START_GAME_ERROR_NO_TITLE_TIK -> getString(R.string.no_title_tik);
+            default -> getString(R.string.game_files_unknown_error, launchPath);
         };
         onEmulationError(getString(errorMessageId));
     }
 
     private void onEmulationError(String errorMessage) {
         hasEmulationError = true;
-        if (viewModel == null)
-            return;
-        viewModel.setEmulationError(new EmulationError(errorMessage));
+        if (onEmulationErrorCallback != null) {
+            onEmulationErrorCallback.onEmulationError(errorMessage);
+        }
     }
 }

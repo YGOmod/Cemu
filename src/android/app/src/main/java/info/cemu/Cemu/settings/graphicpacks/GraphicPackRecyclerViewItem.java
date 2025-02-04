@@ -27,11 +27,16 @@ public class GraphicPackRecyclerViewItem implements RecyclerViewItem {
         }
     }
 
+    public interface OnCheckedChangeListener {
+        void onCheckedChange(boolean checked);
+    }
 
     private final NativeGraphicPacks.GraphicPack graphicPack;
+    private final OnCheckedChangeListener onCheckedChangeListener;
 
-    public GraphicPackRecyclerViewItem(NativeGraphicPacks.GraphicPack graphicPack) {
+    public GraphicPackRecyclerViewItem(NativeGraphicPacks.GraphicPack graphicPack, OnCheckedChangeListener onCheckedChangeListener) {
         this.graphicPack = graphicPack;
+        this.onCheckedChangeListener = onCheckedChangeListener;
     }
 
     @Override
@@ -49,6 +54,11 @@ public class GraphicPackRecyclerViewItem implements RecyclerViewItem {
             graphicPackViewHolder.description.setText(R.string.graphic_pack_no_description);
         }
         graphicPackViewHolder.enableToggle.setChecked(graphicPack.isActive());
-        graphicPackViewHolder.enableToggle.setOnCheckedChangeListener((materialCheckBox, isChecked) -> graphicPack.setActive(isChecked));
+        graphicPackViewHolder.enableToggle.setOnCheckedChangeListener((materialCheckBox, isChecked) -> {
+            graphicPack.setActive(isChecked);
+            if (onCheckedChangeListener != null) {
+                onCheckedChangeListener.onCheckedChange(isChecked);
+            }
+        });
     }
 }

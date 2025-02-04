@@ -91,20 +91,24 @@ public class InputManager {
     }
 
     public boolean onKeyEvent(KeyEvent event) {
-        if (isSpecialKey(event))
+        if (isSpecialKey(event)) {
             return false;
-        if (event.getDeviceId() < 0)
+        }
+        if (event.getDeviceId() < 0) {
             return false;
+        }
         InputDevice device = event.getDevice();
-        if (!isController(device))
+        if (!isController(device)) {
             return false;
+        }
         NativeInput.onNativeKey(device.getDescriptor(), device.getName(), event.getKeyCode(), event.getAction() == KeyEvent.ACTION_DOWN);
         return true;
     }
 
     public boolean onMotionEvent(MotionEvent event) {
-        if (!isMotionEventFromJoystickOrGamepad(event))
+        if (!isMotionEventFromJoystickOrGamepad(event)) {
             return false;
+        }
         InputDevice device = event.getDevice();
         int actionPointerIndex = event.getActionIndex();
         for (InputDevice.MotionRange motionRange : device.getMotionRanges()) {

@@ -28,12 +28,9 @@ public class GameProfileEditFragment extends Fragment {
 
     private String cpuModeToString(int cpuMode) {
         int resourceId = switch (cpuMode) {
-            case NativeGameTitles.CPU_MODE_SINGLECOREINTERPRETER ->
-                    R.string.cpu_mode_single_core_interpreter;
-            case NativeGameTitles.CPU_MODE_SINGLECORERECOMPILER ->
-                    R.string.cpu_mode_single_core_recompiler;
-            case NativeGameTitles.CPU_MODE_MULTICORERECOMPILER ->
-                    R.string.cpu_mode_multi_core_recompiler;
+            case NativeGameTitles.CPU_MODE_SINGLECOREINTERPRETER -> R.string.cpu_mode_single_core_interpreter;
+            case NativeGameTitles.CPU_MODE_SINGLECORERECOMPILER -> R.string.cpu_mode_single_core_recompiler;
+            case NativeGameTitles.CPU_MODE_MULTICORERECOMPILER -> R.string.cpu_mode_multi_core_recompiler;
             default -> R.string.cpu_mode_auto;
         };
         return getString(resourceId);

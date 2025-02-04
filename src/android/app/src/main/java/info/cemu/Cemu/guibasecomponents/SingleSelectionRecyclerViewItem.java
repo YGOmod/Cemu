@@ -84,12 +84,14 @@ public class SingleSelectionRecyclerViewItem<T> implements RecyclerViewItem {
             if (selectAlertDialog == null) {
                 MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(viewHolder.itemView.getContext());
                 selectAlertDialog = builder.setTitle(label).setAdapter(selectionAdapter, (dialogInterface, position) -> {
-                    if (!selectionAdapter.isEnabled(position))
+                    if (!selectionAdapter.isEnabled(position)) {
                         return;
+                    }
                     T selectedValue = selectionAdapter.getItem(position);
                     selectionAdapter.setSelectedValue(selectedValue);
-                    if (onItemSelectedListener != null)
+                    if (onItemSelectedListener != null) {
                         onItemSelectedListener.onItemSelected(selectedValue, SingleSelectionRecyclerViewItem.this);
+                    }
 
                 }).setNegativeButton(R.string.cancel, (dialogInterface, i) -> dialogInterface.dismiss()).show();
                 return;

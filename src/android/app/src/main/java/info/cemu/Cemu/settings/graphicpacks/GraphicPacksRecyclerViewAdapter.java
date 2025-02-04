@@ -5,10 +5,12 @@ import static java.util.regex.Pattern.CASE_INSENSITIVE;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.textview.MaterialTextView;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -22,15 +24,16 @@ import info.cemu.Cemu.guibasecomponents.RecyclerViewItem;
 
 public class GraphicPacksRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private static class GraphicPackSearchItemRecyclerViewItem implements RecyclerViewItem {
+        private static class ViewHolder extends RecyclerView.ViewHolder {
+            MaterialTextView name;
+            MaterialTextView path;
+            MaterialCardView enabledIcon;
 
-        private static class HeaderViewHolder extends RecyclerView.ViewHolder {
-            TextView name;
-            TextView path;
-
-            public HeaderViewHolder(View itemView) {
+            public ViewHolder(View itemView) {
                 super(itemView);
                 name = itemView.findViewById(R.id.graphic_pack_search_name);
                 path = itemView.findViewById(R.id.graphic_pack_search_path);
+                enabledIcon = itemView.findViewById(R.id.graphic_pack_enabled_icon);
             }
         }
 
@@ -38,34 +41,35 @@ public class GraphicPacksRecyclerViewAdapter extends RecyclerView.Adapter<Recycl
             void onClick();
         }
 
-        private final String name;
-        private final String path;
+        private final GraphicPackDataNode dataNode;
         private final boolean hasInstalledTitleId;
         private final OnClickCallback onClickCallback;
 
-        private GraphicPackSearchItemRecyclerViewItem(String name, String path, boolean hasInstalledTitleId, OnClickCallback onClickCallback) {
-            this.name = name;
-            this.path = path;
-            this.hasInstalledTitleId = hasInstalledTitleId;
+        private GraphicPackSearchItemRecyclerViewItem(GraphicPackDataNode dataNode, OnClickCallback onClickCallback) {
+            this.dataNode = dataNode;
+            this.hasInstalledTitleId = dataNode.hasTitleIdInstalled();
             this.onClickCallback = onClickCallback;
         }
 
         @Override
         public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent) {
-            return new HeaderViewHolder(LayoutInflater.from(parent.getContext()).inflate(R.layout.layout_graphic_pack_search_item, parent, false));
+            return new ViewHolder(LayoutInflater.from(parent.getContext()).inflate(R.layout.layout_graphic_pack_search_item, parent, false));
         }
 
         @Override
         public void onBindViewHolder(RecyclerView.ViewHolder viewHolder, RecyclerView.Adapter<RecyclerView.ViewHolder> adapter) {
-            HeaderViewHolder headerViewHolder = (HeaderViewHolder) viewHolder;
-            headerViewHolder.itemView.setOnClickListener(v -> onClickCallback.onClick());
-            headerViewHolder.name.setText(name);
-            headerViewHolder.path.setText(path);
+            ViewHolder graphicPackViewHolder = (ViewHolder) viewHolder;
+            graphicPackViewHolder.itemView.setOnClickListener(v -> onClickCallback.onClick());
+            graphicPackViewHolder.name.setText(dataNode.getName());
+            graphicPackViewHolder.path.setText(dataNode.getPath());
+            if (dataNode.isEnabled()) {
+                graphicPackViewHolder.enabledIcon.setVisibility(View.VISIBLE);
+            }
         }
     }
 
     public interface OnItemClickCallback {
-        void onClick(GraphicPacksRootFragment.GraphicPackDataNode graphicPackDataNode);
+        void onClick(GraphicPackDataNode graphicPackDataNode);
     }
 
     private final OnItemClickCallback onItemClickCallback;
@@ -84,27 +88,27 @@ public class GraphicPacksRecyclerViewAdapter extends RecyclerView.Adapter<Recycl
         filter();
     }
 
-    public void setItems(List<GraphicPacksRootFragment.GraphicPackDataNode> graphicPackDataNodes) {
+    public void setItems(List<GraphicPackDataNode> graphicPackDataNodes) {
         clearItems();
         recyclerViewItems = graphicPackDataNodes.stream()
-                .sorted(Comparator.comparing(GraphicPacksRootFragment.GraphicPackDataNode::getPath))
+                .sorted(Comparator.comparing(GraphicPackDataNode::getPath))
                 .map(graphicPackDataNode ->
                         new GraphicPackSearchItemRecyclerViewItem(
-                                graphicPackDataNode.getName(),
-                                graphicPackDataNode.getPath(),
-                                graphicPackDataNode.hasTitleIdInstalled(),
+                                graphicPackDataNode,
                                 () -> GraphicPacksRecyclerViewAdapter.this.onItemClickCallback.onClick(graphicPackDataNode)
                         )).collect(Collectors.toList());
         filteredViewItems = recyclerViewItems;
-        if (showInstalledGamesOnly)
+        if (showInstalledGamesOnly) {
             filteredViewItems = filteredViewItems.stream().filter(g -> g.hasInstalledTitleId).collect(Collectors.toList());
+        }
         notifyItemRangeInserted(0, filteredViewItems.size());
     }
 
     private void resetFilteredItems() {
         filteredViewItems = recyclerViewItems;
-        if (showInstalledGamesOnly)
+        if (showInstalledGamesOnly) {
             filteredViewItems = filteredViewItems.stream().filter(g -> g.hasInstalledTitleId).collect(Collectors.toList());
+        }
         notifyDataSetChanged();
     }
 
@@ -126,15 +130,18 @@ public class GraphicPacksRecyclerViewAdapter extends RecyclerView.Adapter<Recycl
                 .toString();
         var regex = Pattern.compile(pattern, CASE_INSENSITIVE);
         var filteredData = recyclerViewItems.stream();
-        if (showInstalledGamesOnly)
+        if (showInstalledGamesOnly) {
             filteredData = filteredData.filter(g -> g.hasInstalledTitleId);
-        filteredData = filteredData.filter(g -> regex.matcher(g.path).matches());
+        }
+        filteredData = filteredData.filter(g -> regex.matcher(g.dataNode.getPath()).matches());
         filteredViewItems = filteredData.collect(Collectors.toList());
         notifyDataSetChanged();
     }
 
     public void clearItems() {
-        if (filteredViewItems.isEmpty()) return;
+        if (filteredViewItems.isEmpty()) {
+            return;
+        }
         int itemsCount = filteredViewItems.size();
         filteredViewItems.clear();
         recyclerViewItems.clear();

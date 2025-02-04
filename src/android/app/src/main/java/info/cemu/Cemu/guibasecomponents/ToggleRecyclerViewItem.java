@@ -55,7 +55,9 @@ public class ToggleRecyclerViewItem implements RecyclerViewItem {
         toggleViewHolder.itemView.setOnClickListener(view -> {
             checked = !toggleViewHolder.toggle.isChecked();
             toggleViewHolder.toggle.setChecked(checked);
-            if (onCheckedChangeListener != null) onCheckedChangeListener.onCheckChanged(checked);
+            if (onCheckedChangeListener != null) {
+                onCheckedChangeListener.onCheckChanged(checked);
+            }
         });
     }
 }

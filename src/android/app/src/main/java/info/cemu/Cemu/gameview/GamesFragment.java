@@ -1,7 +1,11 @@
 package info.cemu.Cemu.gameview;
 
+import android.app.PendingIntent;
 import android.content.Intent;
+import android.content.pm.ShortcutInfo;
+import android.content.pm.ShortcutManager;
 import android.graphics.Color;
+import android.graphics.drawable.Icon;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -21,6 +25,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.color.MaterialColors;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.HashSet;
@@ -47,7 +52,7 @@ public class GamesFragment extends Fragment {
         super.onCreate(savedInstanceState);
         currentGamePaths = new HashSet<>(NativeSettings.getGamesPaths());
         gameAdapter = new GameAdapter(game -> {
-            Intent intent = new Intent(getContext(), EmulationActivity.class);
+            Intent intent = new Intent(requireContext(), EmulationActivity.class);
             intent.putExtra(EmulationActivity.EXTRA_LAUNCH_PATH, game.path());
             startActivity(intent);
         });
@@ -74,8 +79,9 @@ public class GamesFragment extends Fragment {
         MenuInflater inflater = requireActivity().getMenuInflater();
         inflater.inflate(R.menu.game, menu);
         Game selectedGame = gameAdapter.getSelectedGame();
-        if (selectedGame == null)
+        if (selectedGame == null) {
             return;
+        }
         menu.findItem(R.id.favorite).setChecked(selectedGame.isFavorite());
         menu.findItem(R.id.remove_shader_caches).setEnabled(NativeGameTitles.titleHasShaderCacheFiles(selectedGame.titleId()));
     }
@@ -105,7 +111,34 @@ public class GamesFragment extends Fragment {
             NavHostFragment.findNavController(this).navigate(R.id.action_games_fragment_to_game_details_fragment);
             return true;
         }
+        if (itemId == R.id.create_shortcut) {
+            createShortcutForGame(game);
+            return true;
+        }
         return super.onContextItemSelected(item);
+    }
+
+    private void createShortcutForGame(Game game) {
+        var context = requireContext();
+        ShortcutManager shortcutManager = context.getSystemService(ShortcutManager.class);
+        if (!shortcutManager.isRequestPinShortcutSupported()) {
+            Toast.makeText(context, R.string.shortcut_not_supported, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (game.icon() == null) {
+            return;
+        }
+        Intent intent = new Intent(requireContext(), EmulationActivity.class);
+        intent.setAction(Intent.ACTION_VIEW);
+        intent.putExtra(EmulationActivity.EXTRA_LAUNCH_PATH, game.path());
+        ShortcutInfo pinShortcutInfo = new ShortcutInfo.Builder(context, String.valueOf(game.titleId()))
+                .setShortLabel(game.name())
+                .setIntent(intent)
+                .setIcon(Icon.createWithBitmap(game.icon()))
+                .build();
+        Intent pinnedShortcutCallbackIntent = shortcutManager.createShortcutResultIntent(pinShortcutInfo);
+        PendingIntent successCallback = PendingIntent.getBroadcast(context, 0, pinnedShortcutCallbackIntent, PendingIntent.FLAG_IMMUTABLE);
+        shortcutManager.requestPinShortcut(pinShortcutInfo, successCallback.getIntentSender());
     }
 
     private void removeShaderCachesForGame(Game game) {
@@ -153,7 +186,9 @@ public class GamesFragment extends Fragment {
         });
 
         binding.gamesSwipeRefresh.setOnRefreshListener(() -> {
-            if (refreshing) return;
+            if (refreshing) {
+                return;
+            }
             refreshing = true;
             handler.postDelayed(() -> {
                 binding.gamesSwipeRefresh.setRefreshing(false);
@@ -161,8 +196,9 @@ public class GamesFragment extends Fragment {
             }, 1000);
             gameListViewModel.refreshGames();
         });
+        binding.gamesSwipeRefresh.setColorSchemeColors(MaterialColors.getColor(requireContext(), com.google.android.material.R.attr.colorOnSurfaceVariant, Color.BLACK));
+        binding.gamesSwipeRefresh.setProgressBackgroundColorSchemeColor(MaterialColors.getColor(requireContext(), com.google.android.material.R.attr.colorSurfaceVariant, Color.WHITE));
         recyclerView.setAdapter(gameAdapter);
-
 
         return binding.getRoot();
     }

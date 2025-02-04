@@ -100,7 +100,7 @@ extern "C" [[maybe_unused]] JNIEXPORT jobject JNICALL
 Java_info_cemu_Cemu_nativeinterface_NativeGraphicPacks_getGraphicPackBasicInfos(JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	auto graphicPackInfoClass = env->FindClass("info/cemu/Cemu/nativeinterface/NativeGraphicPacks$GraphicPackBasicInfo");
-	auto graphicPackInfoCtorId = env->GetMethodID(graphicPackInfoClass, "<init>", "(JLjava/lang/String;Ljava/util/ArrayList;)V");
+	auto graphicPackInfoCtorId = env->GetMethodID(graphicPackInfoClass, "<init>", "(JLjava/lang/String;ZLjava/util/ArrayList;)V");
 
 	std::vector<jobject> graphicPackInfoJObjects;
 	for (auto&& graphicPack : NativeGraphicPacks::s_graphicPacks)
@@ -108,13 +108,13 @@ Java_info_cemu_Cemu_nativeinterface_NativeGraphicPacks_getGraphicPackBasicInfos(
 		jstring virtualPath = env->NewStringUTF(graphicPack.second->GetVirtualPath().c_str());
 		jlong id = graphicPack.first;
 		jobject titleIds = JNIUtils::createJavaLongArrayList(env, graphicPack.second->GetTitleIds());
-		jobject jGraphicPack = env->NewObject(graphicPackInfoClass, graphicPackInfoCtorId, id, virtualPath, titleIds);
+		jobject jGraphicPack = env->NewObject(graphicPackInfoClass, graphicPackInfoCtorId, id, virtualPath, graphicPack.second->IsEnabled(), titleIds);
 		graphicPackInfoJObjects.push_back(jGraphicPack);
 	}
 	return JNIUtils::createArrayList(env, graphicPackInfoJObjects);
 }
 
-extern "C" JNIEXPORT jobject JNICALL
+extern "C" [[maybe_unused]] JNIEXPORT jobject JNICALL
 Java_info_cemu_Cemu_nativeinterface_NativeGraphicPacks_getGraphicPack(JNIEnv* env, [[maybe_unused]] jclass clazz, jlong id)
 {
 	auto graphicPackClass = env->FindClass("info/cemu/Cemu/nativeinterface/NativeGraphicPacks$GraphicPack");

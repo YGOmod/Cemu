@@ -55,7 +55,9 @@ public class CheckboxRecyclerViewItem implements RecyclerViewItem {
         checkBoxViewHolder.itemView.setOnClickListener(view -> {
             checked = !checkBoxViewHolder.checkBox.isChecked();
             checkBoxViewHolder.checkBox.setChecked(checked);
-            if (onCheckedChangeListener != null) onCheckedChangeListener.onCheckChanged(checked);
+            if (onCheckedChangeListener != null) {
+                onCheckedChangeListener.onCheckChanged(checked);
+            }
         });
     }
 }

@@ -23,9 +23,10 @@ public class StringSelectionAdapter extends BaseSelectionAdapter<String> {
     @Override
     public int getPositionOf(String value) {
         OptionalInt optionalInt = IntStream.range(0, choices.size()).filter(position -> choices.get(position).equals(value)).findFirst();
-        if (!optionalInt.isPresent())
-            throw new IllegalArgumentException("value " + value + " was not found in the list of choices");
-        return optionalInt.getAsInt();
+        if (optionalInt.isPresent()) {
+            return optionalInt.getAsInt();
+        }
+        throw new IllegalArgumentException("value " + value + " was not found in the list of choices");
     }
 
     @Override

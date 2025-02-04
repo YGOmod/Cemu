@@ -41,9 +41,10 @@ public class SelectionAdapter<T> extends BaseSelectionAdapter<T> {
     @Override
     public int getPositionOf(T value) {
         OptionalInt optionalInt = IntStream.range(0, choiceItems.size()).filter(position -> choiceItems.get(position).choiceValue.equals(value)).findFirst();
-        if (!optionalInt.isPresent())
-            throw new IllegalArgumentException("value " + value + " was not found in the list of choiceItems");
-        return optionalInt.getAsInt();
+        if (optionalInt.isPresent()) {
+            return optionalInt.getAsInt();
+        }
+        throw new IllegalArgumentException("value " + value + " was not found in the list of choiceItems");
     }
 
     @Override

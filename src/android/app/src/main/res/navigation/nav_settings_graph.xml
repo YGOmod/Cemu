@@ -95,7 +95,7 @@
         android:id="@+id/generalSettingsFragment"
         android:name="info.cemu.Cemu.settings.general.GeneralSettingsFragment"
         android:label="@string/general_settings"
-        tools:layout="@layout/layout_generic_recycler_view" >
+        tools:layout="@layout/layout_generic_recycler_view">
         <action
             android:id="@+id/action_generalSettingsFragment_to_gamePathsFragment"
             app:destination="@id/gamePathsFragment" />

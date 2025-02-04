@@ -19,7 +19,9 @@ public class GenericRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerVie
 
     public void removeRecyclerViewItem(RecyclerViewItem recyclerViewItem) {
         int position = recyclerViewItems.indexOf(recyclerViewItem);
-        if (position == -1) return;
+        if (position == -1) {
+            return;
+        }
         recyclerViewItems.remove(position);
         notifyItemRemoved(position);
     }

@@ -5,7 +5,10 @@ import java.util.List;
 import java.util.Objects;
 
 public class NativeGraphicPacks {
-    public record GraphicPackBasicInfo(long id, String virtualPath, ArrayList<Long> titleIds) {
+    public record GraphicPackBasicInfo(long id,
+                                       String virtualPath,
+                                       boolean enabled,
+                                       ArrayList<Long> titleIds) {
     }
 
     public static native ArrayList<GraphicPackBasicInfo> getGraphicPackBasicInfos();
@@ -23,10 +26,15 @@ public class NativeGraphicPacks {
 
         @Override
         public boolean equals(Object object) {
-            if (object == null) return false;
-            if (object == this) return true;
-            if (object instanceof GraphicPackPreset preset)
+            if (object == null) {
+                return false;
+            }
+            if (object == this) {
+                return true;
+            }
+            if (object instanceof GraphicPackPreset preset) {
                 return this.hashCode() == preset.hashCode();
+            }
             return false;
         }
 
@@ -42,8 +50,9 @@ public class NativeGraphicPacks {
         }
 
         public void setActivePreset(String activePreset) {
-            if (presets.stream().noneMatch(s -> s.equals(activePreset)))
+            if (presets.stream().noneMatch(s -> s.equals(activePreset))) {
                 throw new IllegalArgumentException("Trying to set an invalid preset: " + activePreset);
+            }
             setGraphicPackActivePreset(graphicPackId, category, activePreset);
             this.activePreset = activePreset;
         }
