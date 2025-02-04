@@ -10,8 +10,8 @@ public class RoundButton extends Button {
     int centreY;
     int radius;
 
-    RoundButton(Resources resources, @DrawableRes int pressedButtonId, @DrawableRes int notPressedButtonId, ButtonStateChangeListener buttonStateChangeListener, InputOverlaySurfaceView.OverlayButton overlayButton, InputOverlaySettingsProvider.InputOverlaySettings settings) {
-        super(resources, pressedButtonId, notPressedButtonId, buttonStateChangeListener, overlayButton, settings);
+    RoundButton(Resources resources, @DrawableRes int buttonId, ButtonStateChangeListener buttonStateChangeListener, InputOverlaySurfaceView.OverlayButton overlayButton, InputOverlaySettingsProvider.InputOverlaySettings settings) {
+        super(resources, buttonId, buttonStateChangeListener, overlayButton, settings);
         configure();
     }
 

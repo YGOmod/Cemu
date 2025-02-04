@@ -36,13 +36,11 @@ public abstract class Input {
         configure();
     }
 
-    private static final float MIN_WIDTH_HEIGHT = 100;
-
-    public void resize(int diffX, int diffY, int maxWidth, int maxHeight) {
+    public void resize(int diffX, int diffY, int maxWidth, int maxHeight, int minWidthHeight) {
         var rect = settings.getRect();
         int newRight = rect.right + diffX;
         int newBottom = rect.bottom + diffY;
-        if (newRight - rect.left < MIN_WIDTH_HEIGHT || newBottom - rect.top < MIN_WIDTH_HEIGHT
+        if (newRight - rect.left < minWidthHeight || newBottom - rect.top < minWidthHeight
                 || newRight > maxWidth || newBottom > maxHeight) {
             return;
         }

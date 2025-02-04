@@ -10,6 +10,8 @@ import androidx.core.content.res.ResourcesCompat;
 
 import java.util.Objects;
 
+import info.cemu.Cemu.drawable.DrawableExtensions;
+
 public abstract class Button extends Input {
     protected Drawable iconPressed;
     protected Drawable iconNotPressed;
@@ -18,11 +20,11 @@ public abstract class Button extends Input {
     private final ButtonStateChangeListener buttonStateChangeListener;
     private final InputOverlaySurfaceView.OverlayButton button;
 
-    public Button(Resources resources, @DrawableRes int pressedButtonId, @DrawableRes int notPressedButtonId, ButtonStateChangeListener buttonStateChangeListener, InputOverlaySurfaceView.OverlayButton button, InputOverlaySettingsProvider.InputOverlaySettings settings) {
+    public Button(Resources resources, @DrawableRes int buttonId, ButtonStateChangeListener buttonStateChangeListener, InputOverlaySurfaceView.OverlayButton button, InputOverlaySettingsProvider.InputOverlaySettings settings) {
         super(settings);
-        iconPressed = Objects.requireNonNull(ResourcesCompat.getDrawable(resources, pressedButtonId, null));
+        iconNotPressed = Objects.requireNonNull(ResourcesCompat.getDrawable(resources, buttonId, null));
+        iconPressed = DrawableExtensions.getInvertedDrawable(iconNotPressed, resources);
         iconPressed.setAlpha(settings.getAlpha());
-        iconNotPressed = Objects.requireNonNull(ResourcesCompat.getDrawable(resources, notPressedButtonId, null));
         iconNotPressed.setAlpha(settings.getAlpha());
         icon = iconNotPressed;
         this.buttonStateChangeListener = buttonStateChangeListener;

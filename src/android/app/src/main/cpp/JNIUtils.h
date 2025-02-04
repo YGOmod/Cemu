@@ -59,7 +59,7 @@ namespace JNIUtils
 	  public:
 		Scopedjobject() = default;
 
-		Scopedjobject(Scopedjobject&& other)
+		Scopedjobject(Scopedjobject&& other) noexcept
 		{
 			this->m_jobject = other.m_jobject;
 			other.m_jobject = nullptr;
@@ -72,7 +72,7 @@ namespace JNIUtils
 				m_jobject = nullptr;
 			}
 		}
-		Scopedjobject& operator=(Scopedjobject&& other)
+		Scopedjobject& operator=(Scopedjobject&& other) noexcept
 		{
 			if (this != &other)
 			{
@@ -87,7 +87,7 @@ namespace JNIUtils
 			return m_jobject;
 		}
 
-		Scopedjobject(jobject obj)
+		explicit Scopedjobject(jobject obj)
 		{
 			if (obj)
 				m_jobject = ScopedJNIENV()->NewGlobalRef(obj);
@@ -112,13 +112,13 @@ namespace JNIUtils
 	  public:
 		Scopedjclass() = default;
 
-		Scopedjclass(Scopedjclass&& other)
+		Scopedjclass(Scopedjclass&& other) noexcept
 		{
 			this->m_jclass = other.m_jclass;
 			other.m_jclass = nullptr;
 		}
 
-		Scopedjclass& operator=(Scopedjclass&& other)
+		Scopedjclass& operator=(Scopedjclass&& other) noexcept
 		{
 			if (this != &other)
 			{
@@ -130,7 +130,7 @@ namespace JNIUtils
 			return *this;
 		}
 
-		Scopedjclass(const std::string& className)
+		explicit Scopedjclass(const std::string& className)
 		{
 			ScopedJNIENV scopedEnv;
 			jobject tempObj = scopedEnv->FindClass(className.c_str());

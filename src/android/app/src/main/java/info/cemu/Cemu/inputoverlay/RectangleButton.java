@@ -10,8 +10,8 @@ public class RectangleButton extends Button {
     int right;
     int bottom;
 
-    public RectangleButton(Resources resources, @DrawableRes int pressedButtonId, @DrawableRes int notPressedButtonId, ButtonStateChangeListener buttonStateChangeListener, InputOverlaySurfaceView.OverlayButton overlayButton, InputOverlaySettingsProvider.InputOverlaySettings settings) {
-        super(resources, pressedButtonId, notPressedButtonId, buttonStateChangeListener, overlayButton, settings);
+    public RectangleButton(Resources resources, @DrawableRes int buttonId, ButtonStateChangeListener buttonStateChangeListener, InputOverlaySurfaceView.OverlayButton overlayButton, InputOverlaySettingsProvider.InputOverlaySettings settings) {
+        super(resources, buttonId, buttonStateChangeListener, overlayButton, settings);
         configure();
     }
 
