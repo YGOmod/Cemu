@@ -344,7 +344,7 @@ public class EmulationFragment extends Fragment implements PopupMenu.OnMenuItemC
             case NativeEmulation.START_GAME_ERROR_NO_TITLE_TIK -> getString(R.string.no_title_tik);
             default -> getString(R.string.game_files_unknown_error, launchPath);
         };
-        onEmulationError(getString(errorMessageId));
+        onEmulationError(errorMessage);
     }
 
     private void onEmulationError(String errorMessage) {
