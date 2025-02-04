@@ -84,6 +84,12 @@ struct AArch64GenContext_t : Xbyak_aarch64::CodeGenerator, CodeContext
 	}
 };
 
+template<typename T>
+T fpReg(size_t index)
+{
+	return T(index - IMLArchAArch64::PHYSREG_FPR_BASE);
+}
+
 AArch64GenContext_t::AArch64GenContext_t()
 	: CodeGenerator(DEFAULT_MAX_CODE_SIZE, AutoGrow)
 {
@@ -146,7 +152,7 @@ void AArch64GenContext_t::r_name(IMLInstruction* imlInstruction)
 	}
 	else if (imlInstruction->op_r_name.regR.GetBaseFormat() == IMLRegFormat::F64)
 	{
-		VReg regR = VReg(imlInstruction->op_r_name.regR.GetRegID());
+		VReg regR = fpReg<VReg>(imlInstruction->op_r_name.regR.GetRegID());
 		if (name >= PPCREC_NAME_FPR0 && name < (PPCREC_NAME_FPR0 + 32))
 		{
 			mov(tempXReg, offsetof(PPCInterpreter_t, fpr) + sizeof(FPR_t) * (name - PPCREC_NAME_FPR0));
@@ -227,7 +233,7 @@ void AArch64GenContext_t::name_r(IMLInstruction* imlInstruction)
 	}
 	else if (imlInstruction->op_r_name.regR.GetBaseFormat() == IMLRegFormat::F64)
 	{
-		auto regR = VReg(imlInstruction->op_r_name.regR.GetRegID());
+		auto regR = fpReg<VReg>(imlInstruction->op_r_name.regR.GetRegID());
 		auto tempReg = XReg(TEMP_REGISTER_ID);
 		if (name >= PPCREC_NAME_FPR0 && name < (PPCREC_NAME_FPR0 + 32))
 		{
@@ -1128,7 +1134,8 @@ void AArch64GenContext_t::psq_load_generic(uint8 mode, VReg& dataReg, WReg& memR
 bool AArch64GenContext_t::fpr_load(IMLInstruction* imlInstruction, bool indexed)
 {
 	IMLRegID dataRegId = imlInstruction->op_storeLoad.registerData.GetRegID();
-	VReg dataVReg = VReg(imlInstruction->op_storeLoad.registerData.GetRegID());
+	VReg dataVReg = fpReg<VReg>(imlInstruction->op_storeLoad.registerData.GetRegID());
+	SReg dataSReg = fpReg<SReg>(dataRegId);
 	SReg dataSReg = SReg(dataRegId);
 	WReg realRegisterMem = WReg(imlInstruction->op_storeLoad.registerMem.GetRegID());
 	WReg realRegisterMem2 = indexed ? WReg(imlInstruction->op_storeLoad.registerMem2.GetRegID()) : wzr;
@@ -1190,8 +1197,8 @@ bool AArch64GenContext_t::fpr_load(IMLInstruction* imlInstruction, bool indexed)
 
 void AArch64GenContext_t::psq_store(uint8 mode, IMLRegID dataRegId, WReg& memReg, WReg& indexReg, sint32 memOffset, bool indexed, IMLReg registerGQR)
 {
-	auto dataVReg = VReg(dataRegId);
-	auto dataDReg = DReg(dataRegId);
+	auto dataVReg = fpReg<VReg>(dataRegId);
+	auto dataDReg = fpReg<DReg>(dataRegId);
 
 	bool storePS1 = (mode == PPCREC_FPR_ST_MODE_PSQ_FLOAT_PS0_PS1 ||
 					 mode == PPCREC_FPR_ST_MODE_PSQ_S8_PS0_PS1 ||
@@ -1364,8 +1371,8 @@ void AArch64GenContext_t::psq_store_generic(uint8 mode, IMLRegID dataRegId, WReg
 bool AArch64GenContext_t::fpr_store(IMLInstruction* imlInstruction, bool indexed)
 {
 	IMLRegID dataRegId = imlInstruction->op_storeLoad.registerData.GetRegID();
-	VReg dataReg = VReg(dataRegId);
-	DReg dataDReg = DReg(dataRegId);
+	VReg dataReg = fpReg<VReg>(dataRegId);
+	DReg dataDReg = fpReg<DReg>(dataRegId);
 	WReg memReg = WReg(imlInstruction->op_storeLoad.registerMem.GetRegID());
 	WReg indexReg = indexed ? WReg(imlInstruction->op_storeLoad.registerMem2.GetRegID()) : wzr;
 	sint32 memOffset = imlInstruction->op_storeLoad.immS32;
@@ -1441,9 +1448,9 @@ void AArch64GenContext_t::fpr_r_r(IMLInstruction* imlInstruction)
 {
 	IMLRegID regAId = imlInstruction->op_fpr_r_r.regA.GetRegID();
 	IMLRegID regRId = imlInstruction->op_fpr_r_r.regR.GetRegID();
-	VReg regRVReg = VReg(regRId);
-	VReg regAVReg = VReg(regAId);
-	DReg regADReg = DReg(regAId);
+	VReg regRVReg = fpReg<VReg>(regRId);
+	VReg regAVReg = fpReg<VReg>(regAId);
+	DReg regADReg = fpReg<DReg>(regAId);
 
 	if (imlInstruction->operation == PPCREC_IML_OP_FPR_COPY_BOTTOM_TO_BOTTOM_AND_TOP)
 	{
@@ -1585,9 +1592,9 @@ void AArch64GenContext_t::fpr_r_r(IMLInstruction* imlInstruction)
 
 void AArch64GenContext_t::fpr_r_r_r(IMLInstruction* imlInstruction)
 {
-	auto regR = VReg(imlInstruction->op_fpr_r_r_r.regR.GetRegID());
-	auto regA = VReg(imlInstruction->op_fpr_r_r_r.regA.GetRegID());
-	auto regB = VReg(imlInstruction->op_fpr_r_r_r.regB.GetRegID());
+	auto regR = fpReg<VReg>(imlInstruction->op_fpr_r_r_r.regR.GetRegID());
+	auto regA = fpReg<VReg>(imlInstruction->op_fpr_r_r_r.regA.GetRegID());
+	auto regB = fpReg<VReg>(imlInstruction->op_fpr_r_r_r.regB.GetRegID());
 
 	if (imlInstruction->operation == PPCREC_IML_OP_FPR_MULTIPLY_BOTTOM)
 	{
@@ -1620,10 +1627,10 @@ void AArch64GenContext_t::fpr_r_r_r(IMLInstruction* imlInstruction)
  */
 void AArch64GenContext_t::fpr_r_r_r_r(IMLInstruction* imlInstruction)
 {
-	auto regR = VReg(imlInstruction->op_fpr_r_r_r_r.regR.GetRegID());
-	auto regA = VReg(imlInstruction->op_fpr_r_r_r_r.regA.GetRegID());
-	auto regB = VReg(imlInstruction->op_fpr_r_r_r_r.regB.GetRegID());
-	auto regC = VReg(imlInstruction->op_fpr_r_r_r_r.regC.GetRegID());
+	auto regR = fpReg<VReg>(imlInstruction->op_fpr_r_r_r_r.regR.GetRegID());
+	auto regA = fpReg<VReg>(imlInstruction->op_fpr_r_r_r_r.regA.GetRegID());
+	auto regB = fpReg<VReg>(imlInstruction->op_fpr_r_r_r_r.regB.GetRegID());
+	auto regC = fpReg<VReg>(imlInstruction->op_fpr_r_r_r_r.regC.GetRegID());
 
 	if (imlInstruction->operation == PPCREC_IML_OP_FPR_SUM0)
 	{
@@ -1641,9 +1648,9 @@ void AArch64GenContext_t::fpr_r_r_r_r(IMLInstruction* imlInstruction)
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_SELECT_BOTTOM)
 	{
-		auto regADReg = DReg(imlInstruction->op_fpr_r_r_r_r.regA.GetRegID());
-		auto regBDReg = DReg(imlInstruction->op_fpr_r_r_r_r.regB.GetRegID());
-		auto regCDReg = DReg(imlInstruction->op_fpr_r_r_r_r.regC.GetRegID());
+		auto regADReg = fpReg<DReg>(imlInstruction->op_fpr_r_r_r_r.regA.GetRegID());
+		auto regBDReg = fpReg<DReg>(imlInstruction->op_fpr_r_r_r_r.regB.GetRegID());
+		auto regCDReg = fpReg<DReg>(imlInstruction->op_fpr_r_r_r_r.regC.GetRegID());
 		fcmp(regADReg, 0.0);
 		fcsel(tempDReg, regCDReg, regBDReg, Cond::GE);
 		mov(regR.d[0], tempVReg.d[0]);
@@ -1662,7 +1669,7 @@ void AArch64GenContext_t::fpr_r_r_r_r(IMLInstruction* imlInstruction)
 
 void AArch64GenContext_t::fpr_r(IMLInstruction* imlInstruction)
 {
-	auto regR = VReg(imlInstruction->op_fpr_r.regR.GetRegID());
+	auto regR = fpReg<VReg>(imlInstruction->op_fpr_r.regR.GetRegID());
 
 	if (imlInstruction->operation == PPCREC_IML_OP_FPR_NEGATE_BOTTOM)
 	{
@@ -1731,8 +1738,8 @@ Cond ImlFPCondToArm64Cond(IMLCondition cond)
 void AArch64GenContext_t::fpr_compare(IMLInstruction* imlInstruction)
 {
 	auto regR = XReg(imlInstruction->op_fpr_compare.regR.GetRegID());
-	auto regA = DReg(imlInstruction->op_fpr_compare.regA.GetRegID());
-	auto regB = DReg(imlInstruction->op_fpr_compare.regB.GetRegID());
+	auto regA = fpReg<DReg>(imlInstruction->op_fpr_compare.regA.GetRegID());
+	auto regB = fpReg<DReg>(imlInstruction->op_fpr_compare.regB.GetRegID());
 	auto cond = ImlFPCondToArm64Cond(imlInstruction->op_fpr_compare.cond);
 	fcmp(regA, regB);
 	cset(regR, cond);

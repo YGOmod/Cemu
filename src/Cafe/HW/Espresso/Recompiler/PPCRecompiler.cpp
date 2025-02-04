@@ -297,11 +297,11 @@ void PPCRecompiler_NativeRegisterAllocatorPass(ppcImlGenContext_t& ppcImlGenCont
 	fprPhysPool.SetAvailable(IMLArchX86::PHYSREG_FPR_BASE + 14);
 #elif defined(__aarch64__)
 	auto& gprPhysPool = raParam.GetPhysRegPool(IMLRegFormat::I64);
-	for (int i = 0; i <= 24; i++)
+	for (int i = IMLArchAArch64::PHYSREG_GPR_BASE; i < IMLArchAArch64::PHYSREG_GPR_BASE + IMLArchAArch64::PHYSREG_GPR_COUNT; i++)
 		gprPhysPool.SetAvailable(i);
 
 	auto& fprPhysPool = raParam.GetPhysRegPool(IMLRegFormat::F64);
-	for (int i = 0; i <= 28; i++)
+	for (int i = IMLArchAArch64::PHYSREG_FPR_BASE; i < IMLArchAArch64::PHYSREG_FPR_BASE + IMLArchAArch64::PHYSREG_FPR_COUNT; i++)
 		fprPhysPool.SetAvailable(i);
 #endif
 
