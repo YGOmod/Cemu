@@ -6,7 +6,7 @@
 #include "Common/FileStream.h"
 
 #if __ANDROID__
-#include "Common/unix/ContentUriIStream.h"
+#include "Common/unix/ContentUriStream.h"
 #endif // __ANDROID__
 
 #include <zarchive/zarchivereader.h>
@@ -232,7 +232,7 @@ bool TitleInfo::DetectFormat(const fs::path& path, fs::path& pathOut, TitleDataF
 			ZArchiveReader* zar = nullptr;
 #if __ANDROID__
 			if(FilesystemAndroid::isContentUri(path))
-				zar = ZArchiveReader::OpenFromStream(std::make_unique<ContentUriIStream>(path));
+				zar = ZArchiveReader::OpenFromStream(std::make_unique<ContentUriStream>(path));
 			else
 #endif // __ANDROID__
 				zar = ZArchiveReader::OpenFromFile(path);
@@ -373,7 +373,7 @@ ZArchiveReader* _ZArchivePool_AcquireInstance(const fs::path& path)
 	ZArchiveReader* zar = nullptr;
 #if __ANDROID__
 	if(FilesystemAndroid::isContentUri(path))
-		zar = ZArchiveReader::OpenFromStream(std::make_unique<ContentUriIStream>(path));
+		zar = ZArchiveReader::OpenFromStream(std::make_unique<ContentUriStream>(path));
 	else
 #endif // __ANDROID__
 		zar = ZArchiveReader::OpenFromFile(path);

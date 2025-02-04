@@ -5,7 +5,7 @@
 
 #if __ANDROID__
 #include "Common/unix/FilesystemAndroid.h"
-#include "Common/unix/ContentUriIStream.h"
+#include "Common/unix/ContentUriStream.h"
 #endif // __ANDROID__
 
 #include <zarchive/zarchivereader.h>
@@ -224,7 +224,7 @@ void CafeTitleList::AddTitleFromPath(fs::path path)
 		ZArchiveReader* zar = nullptr;
 #if __ANDROID__
 		if(FilesystemAndroid::isContentUri(path))
-			zar = ZArchiveReader::OpenFromStream(std::make_unique<ContentUriIStream>(path));
+			zar = ZArchiveReader::OpenFromStream(std::make_unique<ContentUriStream>(path));
 		else
 #endif // __ANDROID__
 			zar = ZArchiveReader::OpenFromFile(path);

@@ -1,6 +1,6 @@
 #include "FileStream_contentUri.h"
 
-#include "unix/ContentUriIStream.h"
+#include "unix/ContentUriStream.h"
 
 void ThrowWriteNotSupportedError()
 {
@@ -11,16 +11,16 @@ void FileStreamContentUri::SetPosition(uint64 pos)
 {
     if (!m_isValid)
         return;
-    m_contentUriIStream.seekg((std::streampos)pos);
+    m_contentUriStream.seekg((std::streampos)pos);
 }
 
 uint64 FileStreamContentUri::GetSize()
 {
     cemu_assert(m_isValid);
-    auto currentPos = m_contentUriIStream.tellg();
+    auto currentPos = m_contentUriStream.tellg();
     m_contentUriIStream.seekg(0, std::ios::end);
-    auto fileSize = m_contentUriIStream.tellg();
-    m_contentUriIStream.seekg(currentPos, std::ios::beg);
+    auto fileSize = m_contentUriStream.tellg();
+    m_contentUriStream.seekg(currentPos, std::ios::beg);
     uint64 fs = (uint64)fileSize;
     return fs;
 }
@@ -42,8 +42,8 @@ void FileStreamContentUri::extract(std::vector<uint8>& data)
 
 uint32 FileStreamContentUri::readData(void* data, uint32 length)
 {
-    m_contentUriIStream.read((char*)data, length);
-    size_t bytesRead = m_contentUriIStream.gcount();
+    m_contentUriStream.read((char*)data, length);
+    size_t bytesRead = m_contentUriStream.gcount();
     return (uint32)bytesRead;
 }
 
@@ -116,7 +116,7 @@ void FileStreamContentUri::writeLine(const char* str)
 }
 
 FileStreamContentUri::FileStreamContentUri(const std::string& uri)
-    : m_contentUriIStream(uri)
+    : m_contentUriStream(uri)
 {
-    m_isValid = m_contentUriIStream.isOpen();
+    m_isValid = m_contentUriStream.is_open();
 }

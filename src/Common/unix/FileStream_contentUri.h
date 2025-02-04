@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Common/FileStream.h"
-#include "Common/unix/ContentUriIStream.h"
+#include "Common/unix/ContentUriStream.h"
 
 class FileStreamContentUri : public FileStream
 {
@@ -32,6 +32,6 @@ class FileStreamContentUri : public FileStream
    private:
     friend class FileStream;
     FileStreamContentUri(const std::string& uri);
-    ContentUriIStream m_contentUriIStream;
+    ContentUriStream m_contentUriStream;
     bool m_isValid = false;
 };
