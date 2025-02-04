@@ -369,7 +369,7 @@ void swkbdExport_SwkbdIsNeedCalcSubThreadPredict(PPCInterpreter_t* hCPU)
 	osLib_returnFromFunction(hCPU, r?1:0);
 }
 
-void swkbd_render(bool mainWindow)
+void swkbd::render(bool mainWindow)
 {
 	// only render if active
 	if( swkbdInternalState == NULL || swkbdInternalState->isActive == false)
