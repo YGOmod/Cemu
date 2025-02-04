@@ -11,7 +11,7 @@ import androidx.core.content.res.ResourcesCompat;
 import java.util.Objects;
 import java.util.function.Supplier;
 
-import info.cemu.Cemu.drawable.DrawableExtensions;
+import info.cemu.Cemu.drawable.Drawables;
 
 public class DPadInput extends Input {
     Drawable iconDpadUp;

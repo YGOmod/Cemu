@@ -10,7 +10,7 @@ import androidx.core.content.res.ResourcesCompat;
 
 import java.util.Objects;
 
-import info.cemu.Cemu.drawable.DrawableExtensions;
+import info.cemu.Cemu.drawable.Drawables;
 
 public class Joystick extends Input {
     private final Drawable iconPressed;
