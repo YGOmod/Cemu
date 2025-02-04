@@ -1136,7 +1136,6 @@ bool AArch64GenContext_t::fpr_load(IMLInstruction* imlInstruction, bool indexed)
 	IMLRegID dataRegId = imlInstruction->op_storeLoad.registerData.GetRegID();
 	VReg dataVReg = fpReg<VReg>(imlInstruction->op_storeLoad.registerData.GetRegID());
 	SReg dataSReg = fpReg<SReg>(dataRegId);
-	SReg dataSReg = SReg(dataRegId);
 	WReg realRegisterMem = WReg(imlInstruction->op_storeLoad.registerMem.GetRegID());
 	WReg realRegisterMem2 = indexed ? WReg(imlInstruction->op_storeLoad.registerMem2.GetRegID()) : wzr;
 	sint32 adrOffset = imlInstruction->op_storeLoad.immS32;
