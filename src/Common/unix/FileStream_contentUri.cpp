@@ -18,7 +18,7 @@ uint64 FileStreamContentUri::GetSize()
 {
     cemu_assert(m_isValid);
     auto currentPos = m_contentUriStream.tellg();
-    m_contentUriIStream.seekg(0, std::ios::end);
+    m_contentUriStream.seekg(0, std::ios::end);
     auto fileSize = m_contentUriStream.tellg();
     m_contentUriStream.seekg(currentPos, std::ios::beg);
     uint64 fs = (uint64)fileSize;
