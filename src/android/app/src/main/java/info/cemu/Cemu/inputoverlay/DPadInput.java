@@ -105,7 +105,7 @@ public class DPadInput extends Input {
         background = Objects.requireNonNull(ResourcesCompat.getDrawable(resources, backgroundId, null));
 
         Supplier<Drawable> getNotPressedButtonIcon = () -> Objects.requireNonNull(ResourcesCompat.getDrawable(resources, buttonId, null));
-        Supplier<Drawable> getPressedButtonIcon = () -> DrawableExtensions.applyInvertedColorTransform(ResourcesCompat.getDrawable(resources, buttonId, null));
+        Supplier<Drawable> getPressedButtonIcon = () -> Drawables.applyInvertedColorTransform(ResourcesCompat.getDrawable(resources, buttonId, null));
 
         iconDpadUpPressed = getPressedButtonIcon.get();
         iconDpadUpNotPressed = getNotPressedButtonIcon.get();

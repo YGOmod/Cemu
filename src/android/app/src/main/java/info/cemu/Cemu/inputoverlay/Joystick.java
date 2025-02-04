@@ -36,7 +36,7 @@ public class Joystick extends Input {
         super(settings);
         joystickBackground = Objects.requireNonNull(ResourcesCompat.getDrawable(resources, joystickBackgroundId, null));
         iconNotPressed = Objects.requireNonNull(ResourcesCompat.getDrawable(resources, innerStickId, null));
-        iconPressed = DrawableExtensions.getInvertedDrawable(iconNotPressed, resources);
+        iconPressed = Drawables.getInvertedDrawable(iconNotPressed, resources);
         icon = iconNotPressed;
         this.stickStateChangeListener = stickStateChangeListener;
         this.joystick = joystick;

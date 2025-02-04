@@ -23,7 +23,7 @@ public abstract class Button extends Input {
     public Button(Resources resources, @DrawableRes int buttonId, ButtonStateChangeListener buttonStateChangeListener, InputOverlaySurfaceView.OverlayButton button, InputOverlaySettingsProvider.InputOverlaySettings settings) {
         super(settings);
         iconNotPressed = Objects.requireNonNull(ResourcesCompat.getDrawable(resources, buttonId, null));
-        iconPressed = DrawableExtensions.getInvertedDrawable(iconNotPressed, resources);
+        iconPressed = Drawables.getInvertedDrawable(iconNotPressed, resources);
         iconPressed.setAlpha(settings.getAlpha());
         iconNotPressed.setAlpha(settings.getAlpha());
         icon = iconNotPressed;
