@@ -224,4 +224,18 @@
     <string name="thread_quantum">Thread quantum</string>
     <string name="audio_latency">Latency</string>
     <string name="game_favorite">Favorite</string>
+    <string name="general_settings">General settings</string>
+    <string name="console_language_japanese">Japanese</string>
+    <string name="console_language_english">English</string>
+    <string name="console_language_french">French</string>
+    <string name="console_language_german">German</string>
+    <string name="console_language_italian">Italian</string>
+    <string name="console_language_spanish">Spanish</string>
+    <string name="console_language_chinese">Chinese</string>
+    <string name="console_language_korean">Korean</string>
+    <string name="console_language_dutch">Dutch</string>
+    <string name="console_language_portuguese">Portuguese</string>
+    <string name="console_language_russian">Russian</string>
+    <string name="console_language_taiwanese">Taiwanese</string>
+    <string name="console_language">Console language</string>
 </resources>
