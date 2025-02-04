@@ -7,6 +7,8 @@ namespace JNIUtils
 
 std::string JNIUtils::JStringToString(JNIEnv* env, jstring jstr)
 {
+	if (jstr == nullptr)
+		return {};
 	const char* c_str = env->GetStringUTFChars(jstr, nullptr);
 	std::string str(c_str);
 	env->ReleaseStringUTFChars(jstr, c_str);

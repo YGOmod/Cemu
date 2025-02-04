@@ -7,6 +7,7 @@ import java.io.File;
 
 import info.cemu.Cemu.nativeinterface.NativeEmulation;
 import info.cemu.Cemu.nativeinterface.NativeGraphicPacks;
+import info.cemu.Cemu.nativeinterface.NativeSwkbd;
 
 public class CemuApplication extends Application {
     static {
@@ -37,6 +38,7 @@ public class CemuApplication extends Application {
         NativeEmulation.setDPI(displayMetrics.density);
         NativeEmulation.initializeActiveSettings(getInternalFolder().toString(), getInternalFolder().toString());
         NativeEmulation.initializeEmulation();
+        NativeSwkbd.initializeSwkbd();
         NativeGraphicPacks.refreshGraphicPacks();
     }
 }

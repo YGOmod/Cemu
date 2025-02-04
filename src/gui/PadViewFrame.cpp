@@ -149,7 +149,7 @@ void PadViewFrame::OnKeyUp(wxKeyEvent& event)
 {
 	event.Skip();
 
-	if (swkbd_hasKeyboardInputHook())
+	if (swkbd::hasKeyboardInputHook())
 		return;
 
 	const auto code = event.GetKeyCode();
@@ -173,9 +173,9 @@ void PadViewFrame::OnGesturePan(wxPanGestureEvent& event)
 
 void PadViewFrame::OnChar(wxKeyEvent& event)
 {
-	if (swkbd_hasKeyboardInputHook())
-		swkbd_keyInput(event.GetUnicodeKey());
-	
+	if (swkbd::hasKeyboardInputHook())
+		swkbd::keyInput(event.GetUnicodeKey());
+
 	event.Skip();
 }
 

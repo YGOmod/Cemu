@@ -48,7 +48,7 @@ public class GamesFragment extends Fragment {
         currentGamePaths = new HashSet<>(NativeSettings.getGamesPaths());
         gameAdapter = new GameAdapter(game -> {
             Intent intent = new Intent(getContext(), EmulationActivity.class);
-            intent.putExtra(EmulationActivity.LAUNCH_PATH, game.path());
+            intent.putExtra(EmulationActivity.EXTRA_LAUNCH_PATH, game.path());
             startActivity(intent);
         });
         gameListViewModel = new ViewModelProvider(this).get(GameListViewModel.class);
@@ -74,6 +74,8 @@ public class GamesFragment extends Fragment {
         MenuInflater inflater = requireActivity().getMenuInflater();
         inflater.inflate(R.menu.game, menu);
         Game selectedGame = gameAdapter.getSelectedGame();
+        if (selectedGame == null)
+            return;
         menu.findItem(R.id.favorite).setChecked(selectedGame.isFavorite());
         menu.findItem(R.id.remove_shader_caches).setEnabled(NativeGameTitles.titleHasShaderCacheFiles(selectedGame.titleId()));
     }

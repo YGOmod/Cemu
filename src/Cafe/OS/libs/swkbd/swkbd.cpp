@@ -1,3 +1,4 @@
+#include "OS/libs/swkbd/swkbd.h"
 #include "Cafe/OS/common/OSCommon.h"
 #include "Cafe/HW/Latte/ISA/RegDefines.h"
 #include "Cafe/OS/libs/gx2/GX2.h"
@@ -18,7 +19,7 @@
 #define SWKBD_STATE_DISPLAYED			(2)	// visible
 #define SWKBD_STATE_DISAPPEARING		(3)	// fade-out ?
 
-typedef struct  
+typedef struct
 {
 	uint32 ukn00; // constructor?
 	uint32 ukn04; // destructor?
@@ -26,7 +27,7 @@ typedef struct
 	MEMPTR<void> changeString; // some function address
 }SwkbdIEventReceiverVTable_t;
 
-typedef struct  
+typedef struct
 {
 	MEMPTR<SwkbdIEventReceiverVTable_t> vTable;
 	// todo - more elements? (currently separated from this struct)
@@ -90,6 +91,12 @@ typedef struct
 }swkbdInternalState_t;
 
 swkbdInternalState_t* swkbdInternalState = NULL;
+
+std::shared_ptr<swkbd::swkbdCallbacks> s_swkbdCallbacks;
+void swkbd::setSwkbdCallbacks(const std::shared_ptr<swkbd::swkbdCallbacks>& swkbdCallbacks)
+{
+	s_swkbdCallbacks = swkbdCallbacks;
+}
 
 void swkbdExport_SwkbdCreate(PPCInterpreter_t* hCPU)
 {
@@ -235,6 +242,9 @@ void swkbdExport_SwkbdAppearInputForm(PPCInterpreter_t* hCPU)
 		swkbdInternalState->formStringBuffer[0] = '\0';
 		swkbdInternalState->formStringLength = 0;
 	}
+	if (s_swkbdCallbacks)
+		s_swkbdCallbacks->showSoftwareKeyboard({swkbdInternalState->formStringBuffer, swkbdInternalState->formStringBuffer + swkbdInternalState->formStringLength}, swkbdInternalState->maxTextLength);
+
 	osLib_returnFromFunction(hCPU, 1);
 }
 
@@ -257,6 +267,12 @@ void swkbdExport_SwkbdAppearKeyboard(PPCInterpreter_t* hCPU)
 	swkbdInternalState->formStringBuffer[0] = '\0';
 	swkbdInternalState->formStringLength = 0;
 	swkbdInternalState->keyboardArg = *keyboardArg;
+	if (s_swkbdCallbacks)
+	{
+		sint32 maxLength = std::max(swkbdInternalState->keyboardArg.receiverArg.stringBufSize - 1, 0);
+		s_swkbdCallbacks->showSoftwareKeyboard({swkbdInternalState->formStringBuffer, swkbdInternalState->formStringBuffer + swkbdInternalState->formStringLength}, maxLength);
+	}
+
 	osLib_returnFromFunction(hCPU, 1);
 }
 
@@ -264,6 +280,8 @@ void swkbdExport_SwkbdDisappearInputForm(PPCInterpreter_t* hCPU)
 {
 	debug_printf("SwkbdDisappearInputForm__3RplFv LR: %08x\n", hCPU->spr.LR);
 	swkbdInternalState->isActive = false;
+	if (s_swkbdCallbacks)
+		s_swkbdCallbacks->hideSoftwareKeyboard();
 	osLib_returnFromFunction(hCPU, 1);
 }
 
@@ -271,6 +289,8 @@ void swkbdExport_SwkbdDisappearKeyboard(PPCInterpreter_t* hCPU)
 {
 	debug_printf("SwkbdDisappearKeyboard__3RplFv LR: %08x\n", hCPU->spr.LR);
 	swkbdInternalState->isActive = false;
+	if (s_swkbdCallbacks)
+		s_swkbdCallbacks->hideSoftwareKeyboard();
 	osLib_returnFromFunction(hCPU, 1);
 }
 
@@ -349,7 +369,6 @@ void swkbdExport_SwkbdIsNeedCalcSubThreadPredict(PPCInterpreter_t* hCPU)
 	osLib_returnFromFunction(hCPU, r?1:0);
 }
 
-void swkbd_keyInput(uint32 keyCode);
 void swkbd_render(bool mainWindow)
 {
 	// only render if active
@@ -438,13 +457,13 @@ void swkbd_render(bool mainWindow)
 					if (ImGui::Button(key, { *key == ' ' ? 537 : (button_len + 5), 0}))
 					{
 						if (strcmp(key, _utf8WrapperPtr(ICON_FA_ARROW_CIRCLE_LEFT)) == 0)
-							swkbd_keyInput(8);
+							swkbd::keyInput(BACKSPACE_KEYCODE);
 						else if (strcmp(key, _utf8WrapperPtr(ICON_FA_ARROW_UP)) == 0)
 							swkbdInternalState->shiftActivated = !swkbdInternalState->shiftActivated;
 						else if (strcmp(key, _utf8WrapperPtr(ICON_FA_CHECK)) == 0)
-							swkbd_keyInput(13);
+							swkbd::keyInput(RETURN_KEYCODE);
 						else
-							swkbd_keyInput(*key);
+							swkbd::keyInput(*key);
 					}
 
 					ImGui::SameLine();
@@ -470,13 +489,13 @@ void swkbd_render(bool mainWindow)
 					if (ImGui::Button(key, { *key == ' ' ? 537 : (button_len + 5), 0 }))
 					{
 						if (strcmp(key, _utf8WrapperPtr(ICON_FA_ARROW_CIRCLE_LEFT)) == 0)
-							swkbd_keyInput(8);
+							swkbd::keyInput(BACKSPACE_KEYCODE);
 						else if (strcmp(key, _utf8WrapperPtr(ICON_FA_ARROW_UP)) == 0)
 							swkbdInternalState->shiftActivated = !swkbdInternalState->shiftActivated;
 						else if (strcmp(key, _utf8WrapperPtr(ICON_FA_CHECK)) == 0)
-							swkbd_keyInput(13);
+							swkbd::keyInput(RETURN_KEYCODE);
 						else
-							swkbd_keyInput(*key);
+							swkbd::keyInput(*key);
 					}
 
 					ImGui::SameLine();
@@ -492,7 +511,7 @@ void swkbd_render(bool mainWindow)
 	if (io.NavInputs[ImGuiNavInput_Cancel] > 0)
 	{
 		if(!swkbdInternalState->cancelState)
-			swkbd_keyInput(8); // backspace
+			swkbd::keyInput(BACKSPACE_KEYCODE); // backspace
 		swkbdInternalState->cancelState = true;
 	}
 	else
@@ -501,7 +520,7 @@ void swkbd_render(bool mainWindow)
 	if (io.NavInputs[ImGuiNavInput_Input] > 0)
 	{
 		if (!swkbdInternalState->returnState)
-			swkbd_keyInput(13); // return
+			swkbd::keyInput(RETURN_KEYCODE); // return
 		swkbdInternalState->returnState = true;
 	}
 	else
@@ -511,7 +530,7 @@ void swkbd_render(bool mainWindow)
 	ImGui::PopStyleColor();
 }
 
-bool swkbd_hasKeyboardInputHook()
+bool swkbd::hasKeyboardInputHook()
 {
 	return swkbdInternalState != NULL && swkbdInternalState->isActive;
 }
@@ -564,9 +583,9 @@ void swkbd_inputStringChanged()
 	}
 }
 
-void swkbd_keyInput(uint32 keyCode)
+void swkbd::keyInput(uint32 keyCode)
 {
-	if (keyCode == 8 || keyCode == 127) // backspace || backwards delete
+	if (keyCode == BACKSPACE_KEYCODE || keyCode == BACKWARDS_DELETE_KEYCODE)
 	{
 		if (swkbdInternalState->formStringLength > 0)
 			swkbdInternalState->formStringLength--;
@@ -574,7 +593,7 @@ void swkbd_keyInput(uint32 keyCode)
 		swkbd_inputStringChanged();
 		return;
 	}
-	else if (keyCode == 13) // return
+	else if (keyCode == RETURN_KEYCODE)
 	{
 		swkbd_finishInput();
 		return;
@@ -593,7 +612,7 @@ void swkbd_keyInput(uint32 keyCode)
 	{
 		// allowed
 	}
-	else if (keyCode < 32)
+	else if (keyCode < CONTROL_KEYCODE)
 	{
 		// control key
 		return;

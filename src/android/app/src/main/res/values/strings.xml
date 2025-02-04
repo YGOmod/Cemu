@@ -238,4 +238,6 @@
     <string name="console_language_russian">Russian</string>
     <string name="console_language_taiwanese">Taiwanese</string>
     <string name="console_language">Console language</string>
+    <string name="emulation_input_text_hint">Input text</string>
+    <string name="done">Done</string>
 </resources>
