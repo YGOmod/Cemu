@@ -15,12 +15,11 @@ namespace CafeSystem
 		virtual void CafeRecreateCanvas() = 0;
 	};
 
-	enum class STATUS_CODE
+	enum class PREPARE_STATUS_CODE
 	{
 		SUCCESS,
 		INVALID_RPX,
 		UNABLE_TO_MOUNT, // failed to mount through TitleInfo (most likely caused by an invalid or outdated path)
-		//BAD_META_DATA, - the title list only stores titles with valid meta, so this error code is impossible
 	};
 
 	class CafeSystemCallbacks
@@ -38,8 +37,8 @@ namespace CafeSystem
 	void SetImplementation(SystemImplementation* impl);
 	void Shutdown();
 
-	STATUS_CODE PrepareForegroundTitle(TitleId titleId);
-	STATUS_CODE PrepareForegroundTitleFromStandaloneRPX(const fs::path& path);
+	PREPARE_STATUS_CODE PrepareForegroundTitle(TitleId titleId);
+	PREPARE_STATUS_CODE PrepareForegroundTitleFromStandaloneRPX(const fs::path& path);
 	void LaunchForegroundTitle();
 	bool IsTitleRunning();
 
