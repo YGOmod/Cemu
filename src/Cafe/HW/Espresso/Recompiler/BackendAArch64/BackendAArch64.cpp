@@ -4,42 +4,45 @@
 #undef CSIZE
 #include <xbyak_aarch64.h>
 #pragma pop_macro("CSIZE")
+#include <xbyak_aarch64_util.h>
 
 #include <cstddef>
 
 #include "../PPCRecompiler.h"
+#include "asm/x64util.h"
 #include "Cafe/OS/libs/coreinit/coreinit_Time.h"
 #include "Common/precompiled.h"
+#include "Common/cpu_features.h"
 #include "HW/Espresso/Interpreter/PPCInterpreterInternal.h"
+#include "HW/Espresso/Interpreter/PPCInterpreterHelper.h"
 #include "HW/Espresso/PPCState.h"
-
-#include <HW/Espresso/Interpreter/PPCInterpreterHelper.h>
-#include <asm/x64util.h>
 
 using namespace Xbyak_aarch64;
 
-constexpr uint32_t TEMP_REGISTER_ID = 25;
-constexpr uint32_t TEMP_REGISTER_2_ID = 26;
+constexpr uint32_t TEMP_GPR_1_ID = 25;
+constexpr uint32_t TEMP_GPR_2_ID = 26;
 constexpr uint32_t PPC_RECOMPILER_INSTANCE_DATA_REG_ID = 27;
 constexpr uint32_t MEMORY_BASE_REG_ID = 28;
 constexpr uint32_t HCPU_REG_ID = 29;
-// FPR
-constexpr uint32_t TEMP_VECTOR_REGISTER_ID = 29;
-constexpr uint32_t TEMP_VECTOR_REGISTER_2_ID = 30;
-constexpr uint32_t ASM_ROUTINE_REGISTER_ID = 31;
+constexpr uint32_t TEMP_FPR_1_ID = 29;
+constexpr uint32_t TEMP_FPR_2_ID = 30;
+constexpr uint32_t ASM_ROUTINE_FPR_ID = 31;
 
 constexpr uint64_t DOUBLE_1_0 = std::bit_cast<uint64_t>(1.0);
-static const XReg hCPU{HCPU_REG_ID}, ppcRec{PPC_RECOMPILER_INSTANCE_DATA_REG_ID}, memBase{MEMORY_BASE_REG_ID};
-static const XReg tempXReg{TEMP_REGISTER_ID}, temp2XReg{TEMP_REGISTER_2_ID};
-static const WReg tempWReg{TEMP_REGISTER_ID}, temp2WReg{TEMP_REGISTER_2_ID};
-static const VReg tempVReg{TEMP_VECTOR_REGISTER_ID}, temp2VReg{TEMP_VECTOR_REGISTER_2_ID}, asmRoutineVReg{ASM_ROUTINE_REGISTER_ID};
-static const DReg tempDReg{TEMP_VECTOR_REGISTER_ID};
-static const SReg tempSReg{TEMP_VECTOR_REGISTER_ID};
-static const QReg tempQReg{TEMP_VECTOR_REGISTER_ID};
-static const WReg lrWReg{TEMP_REGISTER_2_ID};
-static const XReg lrXReg{TEMP_REGISTER_2_ID};
+static const XReg HCPU_REG{HCPU_REG_ID}, PPC_REC_INSTANCE_REG{PPC_RECOMPILER_INSTANCE_DATA_REG_ID}, MEM_BASE_REG{MEMORY_BASE_REG_ID};
+static const XReg TEMP_GPR_1_XREG{TEMP_GPR_1_ID}, TEMP_GPR_2_XREG{TEMP_GPR_2_ID};
+static const WReg TEMP_GPR_1_WREG{TEMP_GPR_1_ID}, TEMP_GPR_2_WREG{TEMP_GPR_2_ID};
+static const VReg TEMP_FPR_1_VREG{TEMP_FPR_1_ID}, TEMP_FPR_2_VREG{TEMP_FPR_2_ID}, ASM_ROUTINE_FPR_VREG{ASM_ROUTINE_FPR_ID};
+static const DReg TEMP_FPR_1_DREG{TEMP_FPR_1_ID}, TEMP_FPR_2_DREG{TEMP_FPR_2_ID};
+static const SReg TEMP_FPR_1_SREG{TEMP_FPR_1_ID};
+static const HReg TEMP_FPR_1_HREG{TEMP_FPR_1_ID};
+static const QReg TEMP_FPR_1_QREG{TEMP_FPR_1_ID};
+static const WReg LR_WREG{TEMP_GPR_2_ID};
+static const XReg LR_XREG{TEMP_GPR_2_ID};
 
-struct AArch64GenContext_t : Xbyak_aarch64::CodeGenerator, CodeContext
+static const util::Cpu s_cpu;
+
+struct AArch64GenContext_t : CodeGenerator, CodeContext
 {
 	AArch64GenContext_t();
 
@@ -61,21 +64,21 @@ struct AArch64GenContext_t : Xbyak_aarch64::CodeGenerator, CodeContext
 	void atomic_cmp_store(IMLInstruction* imlInstruction);
 	bool macro(IMLInstruction* imlInstruction);
 	bool fpr_load(IMLInstruction* imlInstruction, bool indexed);
-	void psq_load(uint8 mode, Xbyak_aarch64::VReg& dataReg, Xbyak_aarch64::WReg& memReg, Xbyak_aarch64::WReg& indexReg, sint32 memImmS32, bool indexed, IMLReg registerGQR = IMLREG_INVALID);
-	void psq_load_generic(uint8 mode, Xbyak_aarch64::VReg& dataReg, Xbyak_aarch64::WReg& memReg, Xbyak_aarch64::WReg& indexReg, sint32 memImmS32, bool indexed, IMLReg registerGQR);
+	void psq_load(uint8 mode, VReg& dataReg, WReg& memReg, WReg& indexReg, sint32 memImmS32, bool indexed, const IMLReg& registerGQR = IMLREG_INVALID);
+	void psq_load_generic(uint8 mode, VReg& dataReg, WReg& memReg, WReg& indexReg, sint32 memImmS32, bool indexed, const IMLReg& registerGQR);
 	bool fpr_store(IMLInstruction* imlInstruction, bool indexed);
-	void psq_store(uint8 mode, IMLRegID dataRegId, Xbyak_aarch64::WReg& memReg, Xbyak_aarch64::WReg& indexReg, sint32 memOffset, bool indexed, IMLReg registerGQR = IMLREG_INVALID);
-	void psq_store_generic(uint8 mode, IMLRegID dataRegId, Xbyak_aarch64::WReg& memReg, Xbyak_aarch64::WReg& indexReg, sint32 memOffset, bool indexed, IMLReg registerGQR);
+	void psq_store(uint8 mode, IMLRegID dataRegId, WReg& memReg, WReg& indexReg, sint32 memOffset, bool indexed, const IMLReg& registerGQR = IMLREG_INVALID);
+	void psq_store_generic(uint8 mode, IMLRegID dataRegId, WReg& memReg, WReg& indexReg, sint32 memOffset, bool indexed, const IMLReg& registerGQR);
 	void fpr_r_r(IMLInstruction* imlInstruction);
 	void fpr_r_r_r(IMLInstruction* imlInstruction);
 	void fpr_r_r_r_r(IMLInstruction* imlInstruction);
 	void fpr_r(IMLInstruction* imlInstruction);
 	void fpr_compare(IMLInstruction* imlInstruction);
-	void cjump(const std::unordered_map<IMLSegment*, Xbyak_aarch64::Label>& labels, IMLInstruction* imlInstruction, IMLSegment* imlSegment);
-	void jump(const std::unordered_map<IMLSegment*, Xbyak_aarch64::Label>& labels, IMLSegment* imlSegment);
-	void conditionalJumpCycleCheck(const std::unordered_map<IMLSegment*, Xbyak_aarch64::Label>& labels, IMLSegment* imlSegment);
+	void cjump(const std::unordered_map<IMLSegment*, Label>& labels, IMLInstruction* imlInstruction, IMLSegment* imlSegment);
+	void jump(const std::unordered_map<IMLSegment*, Label>& labels, IMLSegment* imlSegment);
+	void conditionalJumpCycleCheck(const std::unordered_map<IMLSegment*, Label>& labels, IMLSegment* imlSegment);
 
-	void gqr_generateScaleCode(Xbyak_aarch64::VReg& dataReg, bool isLoad, bool scalePS1, IMLReg registerGQR);
+	void gqr_generateScaleCode(VReg& dataReg, bool isLoad, bool scalePS1, const IMLReg& registerGQR);
 
 	bool conditional_r_s32([[maybe_unused]] IMLInstruction* imlInstruction)
 	{
@@ -85,9 +88,15 @@ struct AArch64GenContext_t : Xbyak_aarch64::CodeGenerator, CodeContext
 };
 
 template<typename T>
-T fpReg(size_t index)
+T fpReg(uint32 index)
 {
 	return T(index - IMLArchAArch64::PHYSREG_FPR_BASE);
+}
+
+template<typename T>
+T gpReg(uint32 index)
+{
+	return T(index - IMLArchAArch64::PHYSREG_GPR_BASE);
 }
 
 AArch64GenContext_t::AArch64GenContext_t()
@@ -102,48 +111,48 @@ void AArch64GenContext_t::r_name(IMLInstruction* imlInstruction)
 
 	if (imlInstruction->op_r_name.regR.GetBaseFormat() == IMLRegFormat::I64)
 	{
-		WReg regR = WReg(regId);
+		WReg regR = gpReg<WReg>(regId);
 		if (name >= PPCREC_NAME_R0 && name < PPCREC_NAME_R0 + 32)
 		{
-			ldr(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, gpr) + sizeof(uint32) * (name - PPCREC_NAME_R0)));
+			ldr(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, gpr) + sizeof(uint32) * (name - PPCREC_NAME_R0)));
 		}
 		else if (name >= PPCREC_NAME_SPR0 && name < PPCREC_NAME_SPR0 + 999)
 		{
-			sint32 sprIndex = (name - PPCREC_NAME_SPR0);
+			uint32 sprIndex = (name - PPCREC_NAME_SPR0);
 			if (sprIndex == SPR_LR)
-				ldr(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, spr.LR)));
+				ldr(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, spr.LR)));
 			else if (sprIndex == SPR_CTR)
-				ldr(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, spr.CTR)));
+				ldr(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, spr.CTR)));
 			else if (sprIndex == SPR_XER)
-				ldr(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, spr.XER)));
+				ldr(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, spr.XER)));
 			else if (sprIndex >= SPR_UGQR0 && sprIndex <= SPR_UGQR7)
-				ldr(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, spr.UGQR) + sizeof(PPCInterpreter_t::spr.UGQR[0]) * (sprIndex - SPR_UGQR0)));
+				ldr(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, spr.UGQR) + sizeof(PPCInterpreter_t::spr.UGQR[0]) * (sprIndex - SPR_UGQR0)));
 			else
 				cemu_assert_suspicious();
 		}
 		else if (name >= PPCREC_NAME_TEMPORARY && name < PPCREC_NAME_TEMPORARY + 4)
 		{
-			ldr(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, temporaryGPR_reg) + sizeof(uint32) * (name - PPCREC_NAME_TEMPORARY)));
+			ldr(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, temporaryGPR_reg) + sizeof(uint32) * (name - PPCREC_NAME_TEMPORARY)));
 		}
 		else if (name == PPCREC_NAME_XER_CA)
 		{
-			ldrb(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, xer_ca)));
+			ldrb(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, xer_ca)));
 		}
 		else if (name == PPCREC_NAME_XER_SO)
 		{
-			ldrb(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, xer_so)));
+			ldrb(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, xer_so)));
 		}
 		else if (name >= PPCREC_NAME_CR && name <= PPCREC_NAME_CR_LAST)
 		{
-			ldrb(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, cr) + (name - PPCREC_NAME_CR)));
+			ldrb(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, cr) + (name - PPCREC_NAME_CR)));
 		}
 		else if (name == PPCREC_NAME_CPU_MEMRES_EA)
 		{
-			ldr(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, reservedMemAddr)));
+			ldr(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, reservedMemAddr)));
 		}
 		else if (name == PPCREC_NAME_CPU_MEMRES_VAL)
 		{
-			ldr(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, reservedMemValue)));
+			ldr(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, reservedMemValue)));
 		}
 		else
 		{
@@ -152,18 +161,16 @@ void AArch64GenContext_t::r_name(IMLInstruction* imlInstruction)
 	}
 	else if (imlInstruction->op_r_name.regR.GetBaseFormat() == IMLRegFormat::F64)
 	{
-		VReg regR = fpReg<VReg>(imlInstruction->op_r_name.regR.GetRegID());
+		QReg regR = fpReg<QReg>(imlInstruction->op_r_name.regR.GetRegID());
 		if (name >= PPCREC_NAME_FPR0 && name < (PPCREC_NAME_FPR0 + 32))
 		{
-			mov(tempXReg, offsetof(PPCInterpreter_t, fpr) + sizeof(FPR_t) * (name - PPCREC_NAME_FPR0));
-			add(tempXReg, tempXReg, hCPU);
-			ld1(regR.d2, AdrNoOfs(tempXReg));
+			mov(TEMP_GPR_1_XREG, offsetof(PPCInterpreter_t, fpr) + sizeof(FPR_t) * (name - PPCREC_NAME_FPR0));
+			ldr(regR, AdrReg(HCPU_REG, TEMP_GPR_1_XREG));
 		}
 		else if (name >= PPCREC_NAME_TEMPORARY_FPR0 && name < (PPCREC_NAME_TEMPORARY_FPR0 + 8))
 		{
-			mov(tempXReg, offsetof(PPCInterpreter_t, temporaryFPR) + sizeof(FPR_t) * (name - PPCREC_NAME_TEMPORARY_FPR0));
-			add(tempXReg, tempXReg, hCPU);
-			ld1(regR.d2, AdrNoOfs(tempXReg));
+			mov(TEMP_GPR_1_XREG, offsetof(PPCInterpreter_t, temporaryFPR) + sizeof(FPR_t) * (name - PPCREC_NAME_TEMPORARY_FPR0));
+			ldr(regR, AdrReg(HCPU_REG, TEMP_GPR_1_XREG));
 		}
 		else
 		{
@@ -183,48 +190,48 @@ void AArch64GenContext_t::name_r(IMLInstruction* imlInstruction)
 
 	if (imlInstruction->op_r_name.regR.GetBaseFormat() == IMLRegFormat::I64)
 	{
-		auto regR = WReg(regId);
+		auto regR = gpReg<WReg>(regId);
 		if (name >= PPCREC_NAME_R0 && name < PPCREC_NAME_R0 + 32)
 		{
-			str(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, gpr) + sizeof(uint32) * (name - PPCREC_NAME_R0)));
+			str(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, gpr) + sizeof(uint32) * (name - PPCREC_NAME_R0)));
 		}
 		else if (name >= PPCREC_NAME_SPR0 && name < PPCREC_NAME_SPR0 + 999)
 		{
 			uint32 sprIndex = (name - PPCREC_NAME_SPR0);
 			if (sprIndex == SPR_LR)
-				str(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, spr.LR)));
+				str(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, spr.LR)));
 			else if (sprIndex == SPR_CTR)
-				str(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, spr.CTR)));
+				str(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, spr.CTR)));
 			else if (sprIndex == SPR_XER)
-				str(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, spr.XER)));
+				str(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, spr.XER)));
 			else if (sprIndex >= SPR_UGQR0 && sprIndex <= SPR_UGQR7)
-				str(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, spr.UGQR) + sizeof(PPCInterpreter_t::spr.UGQR[0]) * (sprIndex - SPR_UGQR0)));
+				str(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, spr.UGQR) + sizeof(PPCInterpreter_t::spr.UGQR[0]) * (sprIndex - SPR_UGQR0)));
 			else
 				cemu_assert_suspicious();
 		}
 		else if (name >= PPCREC_NAME_TEMPORARY && name < PPCREC_NAME_TEMPORARY + 4)
 		{
-			str(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, temporaryGPR_reg) + sizeof(uint32) * (name - PPCREC_NAME_TEMPORARY)));
+			str(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, temporaryGPR_reg) + sizeof(uint32) * (name - PPCREC_NAME_TEMPORARY)));
 		}
 		else if (name == PPCREC_NAME_XER_CA)
 		{
-			strb(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, xer_ca)));
+			strb(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, xer_ca)));
 		}
 		else if (name == PPCREC_NAME_XER_SO)
 		{
-			strb(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, xer_so)));
+			strb(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, xer_so)));
 		}
 		else if (name >= PPCREC_NAME_CR && name <= PPCREC_NAME_CR_LAST)
 		{
-			strb(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, cr) + (name - PPCREC_NAME_CR)));
+			strb(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, cr) + (name - PPCREC_NAME_CR)));
 		}
 		else if (name == PPCREC_NAME_CPU_MEMRES_EA)
 		{
-			str(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, reservedMemAddr)));
+			str(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, reservedMemAddr)));
 		}
 		else if (name == PPCREC_NAME_CPU_MEMRES_VAL)
 		{
-			str(regR, AdrImm(hCPU, offsetof(PPCInterpreter_t, reservedMemValue)));
+			str(regR, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, reservedMemValue)));
 		}
 		else
 		{
@@ -233,19 +240,16 @@ void AArch64GenContext_t::name_r(IMLInstruction* imlInstruction)
 	}
 	else if (imlInstruction->op_r_name.regR.GetBaseFormat() == IMLRegFormat::F64)
 	{
-		auto regR = fpReg<VReg>(imlInstruction->op_r_name.regR.GetRegID());
-		auto tempReg = XReg(TEMP_REGISTER_ID);
+		QReg regR = fpReg<QReg>(imlInstruction->op_r_name.regR.GetRegID());
 		if (name >= PPCREC_NAME_FPR0 && name < (PPCREC_NAME_FPR0 + 32))
 		{
-			mov(tempReg, offsetof(PPCInterpreter_t, fpr) + sizeof(FPR_t) * (name - PPCREC_NAME_FPR0));
-			add(tempReg, tempReg, hCPU);
-			st1(regR.d2, AdrNoOfs(tempReg));
+			mov(TEMP_GPR_1_XREG, offsetof(PPCInterpreter_t, fpr) + sizeof(FPR_t) * (name - PPCREC_NAME_FPR0));
+			str(regR, AdrReg(HCPU_REG, TEMP_GPR_1_XREG));
 		}
 		else if (name >= PPCREC_NAME_TEMPORARY_FPR0 && name < (PPCREC_NAME_TEMPORARY_FPR0 + 8))
 		{
-			mov(tempReg, offsetof(PPCInterpreter_t, temporaryFPR) + sizeof(FPR_t) * (name - PPCREC_NAME_TEMPORARY_FPR0));
-			add(tempReg, tempReg, hCPU);
-			st1(regR.d2, AdrNoOfs(tempReg));
+			mov(TEMP_GPR_1_XREG, offsetof(PPCInterpreter_t, temporaryFPR) + sizeof(FPR_t) * (name - PPCREC_NAME_TEMPORARY_FPR0));
+			str(regR, AdrReg(HCPU_REG, TEMP_GPR_1_XREG));
 		}
 		else
 		{
@@ -262,8 +266,8 @@ bool AArch64GenContext_t::r_r(IMLInstruction* imlInstruction)
 {
 	IMLRegID regRId = imlInstruction->op_r_r.regR.GetRegID();
 	IMLRegID regAId = imlInstruction->op_r_r.regA.GetRegID();
-	WReg regR = WReg(regRId);
-	WReg regA = WReg(regAId);
+	WReg regR = gpReg<WReg>(regRId);
+	WReg regA = gpReg<WReg>(regAId);
 
 	if (imlInstruction->operation == PPCREC_IML_OP_ASSIGN)
 	{
@@ -296,23 +300,23 @@ bool AArch64GenContext_t::r_r(IMLInstruction* imlInstruction)
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_DCBZ)
 	{
-		movi(tempVReg.d2, 0);
+		movi(TEMP_FPR_1_VREG.d2, 0);
 		if (regRId != regAId)
 		{
-			add(tempWReg, regA, regR);
-			and_(tempWReg, tempWReg, ~0x1f);
+			add(TEMP_GPR_1_WREG, regA, regR);
+			and_(TEMP_GPR_1_WREG, TEMP_GPR_1_WREG, ~0x1f);
 		}
 		else
 		{
-			and_(tempWReg, regA, ~0x1f);
+			and_(TEMP_GPR_1_WREG, regA, ~0x1f);
 		}
-		add(tempXReg, memBase, tempXReg);
-		stp(tempQReg, tempQReg, AdrNoOfs(tempXReg));
+		add(TEMP_GPR_1_XREG, MEM_BASE_REG, TEMP_GPR_1_XREG);
+		stp(TEMP_FPR_1_QREG, TEMP_FPR_1_QREG, AdrNoOfs(TEMP_GPR_1_XREG));
 		return true;
 	}
 	else
 	{
-		debug_printf("PPCRecompilerAArch64Gen_imlInstruction_r_r(): Unsupported operation 0x%x\n", imlInstruction->operation);
+		cemuLog_log(LogType::Recompiler, "PPCRecompilerAArch64Gen_imlInstruction_r_r(): Unsupported operation {:x}", imlInstruction->operation);
 		return false;
 	}
 	return true;
@@ -321,7 +325,7 @@ bool AArch64GenContext_t::r_r(IMLInstruction* imlInstruction)
 bool AArch64GenContext_t::r_s32(IMLInstruction* imlInstruction)
 {
 	sint32 imm32 = imlInstruction->op_r_immS32.immS32;
-	WReg reg = WReg(imlInstruction->op_r_immS32.regR.GetRegID());
+	WReg reg = gpReg<WReg>(imlInstruction->op_r_immS32.regR.GetRegID());
 
 	if (imlInstruction->operation == PPCREC_IML_OP_ASSIGN)
 	{
@@ -333,7 +337,7 @@ bool AArch64GenContext_t::r_s32(IMLInstruction* imlInstruction)
 	}
 	else
 	{
-		debug_printf("PPCRecompilerAArch64Gen_imlInstruction_r_s32(): Unsupported operation 0x%x\n", imlInstruction->operation);
+		cemuLog_log(LogType::Recompiler, "PPCRecompilerAArch64Gen_imlInstruction_r_s32(): Unsupported operation {:x}", imlInstruction->operation);
 		return false;
 	}
 	return true;
@@ -341,32 +345,32 @@ bool AArch64GenContext_t::r_s32(IMLInstruction* imlInstruction)
 
 bool AArch64GenContext_t::r_r_s32(IMLInstruction* imlInstruction)
 {
-	WReg regR = WReg(imlInstruction->op_r_r_s32.regR.GetRegID());
-	WReg regA = WReg(imlInstruction->op_r_r_s32.regA.GetRegID());
+	WReg regR = gpReg<WReg>(imlInstruction->op_r_r_s32.regR.GetRegID());
+	WReg regA = gpReg<WReg>(imlInstruction->op_r_r_s32.regA.GetRegID());
 	sint32 immS32 = imlInstruction->op_r_r_s32.immS32;
 
 	if (imlInstruction->operation == PPCREC_IML_OP_ADD)
 	{
-		add_imm(regR, regA, immS32, tempWReg);
+		add_imm(regR, regA, immS32, TEMP_GPR_1_WREG);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_SUB)
 	{
-		sub_imm(regR, regA, immS32, tempWReg);
+		sub_imm(regR, regA, immS32, TEMP_GPR_1_WREG);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_AND)
 	{
-		mov(tempWReg, immS32);
-		and_(regR, regA, tempWReg);
+		mov(TEMP_GPR_1_WREG, immS32);
+		and_(regR, regA, TEMP_GPR_1_WREG);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_OR)
 	{
-		mov(tempWReg, immS32);
-		orr(regR, regA, tempWReg);
+		mov(TEMP_GPR_1_WREG, immS32);
+		orr(regR, regA, TEMP_GPR_1_WREG);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_XOR)
 	{
-		mov(tempWReg, immS32);
-		eor(regR, regA, tempWReg);
+		mov(TEMP_GPR_1_WREG, immS32);
+		eor(regR, regA, TEMP_GPR_1_WREG);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_RLWIMI)
 	{
@@ -377,20 +381,20 @@ bool AArch64GenContext_t::r_r_s32(IMLInstruction* imlInstruction)
 		uint32 mask = ppc_mask(mb, me);
 		if (sh)
 		{
-			ror(tempWReg, regA, 32 - (sh & 0x1F));
-			and_(tempWReg, tempWReg, mask);
+			ror(TEMP_GPR_1_WREG, regA, 32 - (sh & 0x1F));
+			and_(TEMP_GPR_1_WREG, TEMP_GPR_1_WREG, mask);
 		}
 		else
 		{
-			and_(tempWReg, regA, mask);
+			and_(TEMP_GPR_1_WREG, regA, mask);
 		}
 		and_(regR, regR, ~mask);
-		orr(regR, regR, tempWReg);
+		orr(regR, regR, TEMP_GPR_1_WREG);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_MULTIPLY_SIGNED)
 	{
-		mov(tempWReg, immS32);
-		mul(regR, regA, tempWReg);
+		mov(TEMP_GPR_1_WREG, immS32);
+		mul(regR, regA, TEMP_GPR_1_WREG);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_LEFT_SHIFT)
 	{
@@ -406,7 +410,7 @@ bool AArch64GenContext_t::r_r_s32(IMLInstruction* imlInstruction)
 	}
 	else
 	{
-		debug_printf("PPCRecompilerAArch64Gen_imlInstruction_r_r_s32(): Unsupported operation 0x%x\n", imlInstruction->operation);
+		cemuLog_log(LogType::Recompiler, "PPCRecompilerAArch64Gen_imlInstruction_r_r_s32(): Unsupported operation {:x}", imlInstruction->operation);
 		cemu_assert_suspicious();
 		return false;
 	}
@@ -415,23 +419,20 @@ bool AArch64GenContext_t::r_r_s32(IMLInstruction* imlInstruction)
 
 bool AArch64GenContext_t::r_r_s32_carry(IMLInstruction* imlInstruction)
 {
-	WReg regR = WReg(imlInstruction->op_r_r_s32_carry.regR.GetRegID());
-	WReg regA = WReg(imlInstruction->op_r_r_s32_carry.regA.GetRegID());
-	XReg regCarry = XReg(imlInstruction->op_r_r_s32_carry.regCarry.GetRegID());
+	WReg regR = gpReg<WReg>(imlInstruction->op_r_r_s32_carry.regR.GetRegID());
+	WReg regA = gpReg<WReg>(imlInstruction->op_r_r_s32_carry.regA.GetRegID());
+	WReg regCarry = gpReg<WReg>(imlInstruction->op_r_r_s32_carry.regCarry.GetRegID());
 
 	sint32 immS32 = imlInstruction->op_r_r_s32_carry.immS32;
 	if (imlInstruction->operation == PPCREC_IML_OP_ADD)
 	{
-		adds_imm(regR, regA, immS32, tempWReg);
+		adds_imm(regR, regA, immS32, TEMP_GPR_1_WREG);
 		cset(regCarry, Cond::CS);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_ADD_WITH_CARRY)
 	{
-		mrs(tempXReg, 0b11, 0b011, 0b0100, 0b0010, 0b000); // NZCV
-		bfi(tempXReg, regCarry, 29, 1);
-		msr(0b11, 0b011, 0b0100, 0b0010, 0b000, tempXReg);
-		mov(tempWReg, immS32);
-		adcs(regR, regA, tempWReg);
+		adds_imm(TEMP_GPR_1_WREG, regCarry, immS32, TEMP_GPR_1_WREG);
+		adcs(regR, regA, TEMP_GPR_1_WREG);
 		cset(regCarry, Cond::CS);
 	}
 	else
@@ -445,10 +446,10 @@ bool AArch64GenContext_t::r_r_s32_carry(IMLInstruction* imlInstruction)
 
 bool AArch64GenContext_t::r_r_r(IMLInstruction* imlInstruction)
 {
-	WReg regResult = WReg(imlInstruction->op_r_r_r.regR.GetRegID());
-	XReg reg64Result = XReg(imlInstruction->op_r_r_r.regR.GetRegID());
-	WReg regOperand1 = WReg(imlInstruction->op_r_r_r.regA.GetRegID());
-	WReg regOperand2 = WReg(imlInstruction->op_r_r_r.regB.GetRegID());
+	WReg regResult = gpReg<WReg>(imlInstruction->op_r_r_r.regR.GetRegID());
+	XReg reg64Result = gpReg<XReg>(imlInstruction->op_r_r_r.regR.GetRegID());
+	WReg regOperand1 = gpReg<WReg>(imlInstruction->op_r_r_r.regA.GetRegID());
+	WReg regOperand2 = gpReg<WReg>(imlInstruction->op_r_r_r.regB.GetRegID());
 
 	if (imlInstruction->operation == PPCREC_IML_OP_ADD)
 	{
@@ -488,8 +489,8 @@ bool AArch64GenContext_t::r_r_r(IMLInstruction* imlInstruction)
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_LEFT_ROTATE)
 	{
-		neg(tempWReg, regOperand2);
-		ror(regResult, regOperand1, tempWReg);
+		neg(TEMP_GPR_1_WREG, regOperand2);
+		ror(regResult, regOperand1, TEMP_GPR_1_WREG);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_RIGHT_SHIFT_S)
 	{
@@ -523,7 +524,7 @@ bool AArch64GenContext_t::r_r_r(IMLInstruction* imlInstruction)
 	}
 	else
 	{
-		debug_printf("PPCRecompilerAArch64Gen_imlInstruction_r_r_r(): Unsupported operation 0x%x\n", imlInstruction->operation);
+		cemuLog_log(LogType::Recompiler, "PPCRecompilerAArch64Gen_imlInstruction_r_r_r(): Unsupported operation {:x}", imlInstruction->operation);
 		return false;
 	}
 	return true;
@@ -531,10 +532,10 @@ bool AArch64GenContext_t::r_r_r(IMLInstruction* imlInstruction)
 
 bool AArch64GenContext_t::r_r_r_carry(IMLInstruction* imlInstruction)
 {
-	WReg regR = WReg(imlInstruction->op_r_r_r_carry.regR.GetRegID());
-	WReg regA = WReg(imlInstruction->op_r_r_r_carry.regA.GetRegID());
-	WReg regB = WReg(imlInstruction->op_r_r_r_carry.regB.GetRegID());
-	XReg regCarry = XReg(imlInstruction->op_r_r_r_carry.regCarry.GetRegID());
+	WReg regR = gpReg<WReg>(imlInstruction->op_r_r_r_carry.regR.GetRegID());
+	WReg regA = gpReg<WReg>(imlInstruction->op_r_r_r_carry.regA.GetRegID());
+	WReg regB = gpReg<WReg>(imlInstruction->op_r_r_r_carry.regB.GetRegID());
+	WReg regCarry = gpReg<WReg>(imlInstruction->op_r_r_r_carry.regCarry.GetRegID());
 
 	if (imlInstruction->operation == PPCREC_IML_OP_ADD)
 	{
@@ -543,10 +544,8 @@ bool AArch64GenContext_t::r_r_r_carry(IMLInstruction* imlInstruction)
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_ADD_WITH_CARRY)
 	{
-		mrs(tempXReg, 0b11, 0b011, 0b0100, 0b0010, 0b000); // NZCV
-		bfi(tempXReg, regCarry, 29, 1);
-		msr(0b11, 0b011, 0b0100, 0b0010, 0b000, tempXReg);
-		adcs(regR, regA, regB);
+		adds(TEMP_GPR_1_WREG, regB, regCarry);
+		adcs(regR, regA, TEMP_GPR_1_WREG);
 		cset(regCarry, Cond::CS);
 	}
 	else
@@ -584,9 +583,9 @@ Cond ImlCondToArm64Cond(IMLCondition condition)
 
 void AArch64GenContext_t::compare(IMLInstruction* imlInstruction)
 {
-	WReg regR = WReg(imlInstruction->op_compare.regR.GetRegID());
-	WReg regA = WReg(imlInstruction->op_compare.regA.GetRegID());
-	WReg regB = WReg(imlInstruction->op_compare.regB.GetRegID());
+	WReg regR = gpReg<WReg>(imlInstruction->op_compare.regR.GetRegID());
+	WReg regA = gpReg<WReg>(imlInstruction->op_compare.regA.GetRegID());
+	WReg regB = gpReg<WReg>(imlInstruction->op_compare.regB.GetRegID());
 	Cond cond = ImlCondToArm64Cond(imlInstruction->op_compare.cond);
 	cmp(regA, regB);
 	cset(regR, cond);
@@ -594,18 +593,18 @@ void AArch64GenContext_t::compare(IMLInstruction* imlInstruction)
 
 void AArch64GenContext_t::compare_s32(IMLInstruction* imlInstruction)
 {
-	WReg regR = WReg(imlInstruction->op_compare.regR.GetRegID());
-	WReg regA = WReg(imlInstruction->op_compare.regA.GetRegID());
+	WReg regR = gpReg<WReg>(imlInstruction->op_compare.regR.GetRegID());
+	WReg regA = gpReg<WReg>(imlInstruction->op_compare.regA.GetRegID());
 	sint32 imm = imlInstruction->op_compare_s32.immS32;
 	auto cond = ImlCondToArm64Cond(imlInstruction->op_compare.cond);
-	cmp_imm(regA, imm, tempWReg);
+	cmp_imm(regA, imm, TEMP_GPR_1_WREG);
 	cset(regR, cond);
 }
 
 void AArch64GenContext_t::cjump(const std::unordered_map<IMLSegment*, Label>& labels, IMLInstruction* imlInstruction, IMLSegment* imlSegment)
 {
 	const Label& label = labels.at(imlSegment->nextSegmentBranchTaken);
-	auto regBool = WReg(imlInstruction->op_conditional_jump.registerBool.GetRegID());
+	auto regBool = gpReg<WReg>(imlInstruction->op_conditional_jump.registerBool.GetRegID());
 	Label skipJump;
 	if (imlInstruction->op_conditional_jump.mustBeTrue)
 		cbz(regBool, skipJump);
@@ -626,8 +625,8 @@ void AArch64GenContext_t::conditionalJumpCycleCheck(const std::unordered_map<IML
 	Label positiveRegCycles;
 	const Label& label = labels.at(imlSegment->nextSegmentBranchTaken);
 	Label skipJump;
-	ldr(tempWReg, AdrImm(hCPU, offsetof(PPCInterpreter_t, remainingCycles)));
-	tbz(tempWReg, 31, skipJump);
+	ldr(TEMP_GPR_1_WREG, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, remainingCycles)));
+	tbz(TEMP_GPR_1_WREG, 31, skipJump);
 	b(label);
 	L(skipJump);
 }
@@ -668,47 +667,47 @@ bool AArch64GenContext_t::macro(IMLInstruction* imlInstruction)
 {
 	if (imlInstruction->operation == PPCREC_IML_MACRO_B_TO_REG)
 	{
-		XReg branchDstReg = XReg(imlInstruction->op_macro.paramReg.GetRegID());
+		XReg branchDstReg = gpReg<XReg>(imlInstruction->op_macro.paramReg.GetRegID());
 
-		mov(tempXReg, offsetof(PPCRecompilerInstanceData_t, ppcRecompilerDirectJumpTable));
-		add(tempXReg, tempXReg, branchDstReg, ShMod::LSL, 1);
-		ldr(tempXReg, AdrReg(ppcRec, tempXReg));
-		mov(lrXReg, branchDstReg);
-		br(tempXReg);
+		mov(TEMP_GPR_1_XREG, offsetof(PPCRecompilerInstanceData_t, ppcRecompilerDirectJumpTable));
+		add(TEMP_GPR_1_XREG, TEMP_GPR_1_XREG, branchDstReg, ShMod::LSL, 1);
+		ldr(TEMP_GPR_1_XREG, AdrReg(PPC_REC_INSTANCE_REG, TEMP_GPR_1_XREG));
+		mov(LR_XREG, branchDstReg);
+		br(TEMP_GPR_1_XREG);
 		return true;
 	}
 	else if (imlInstruction->operation == PPCREC_IML_MACRO_BL)
 	{
 		uint32 newLR = imlInstruction->op_macro.param + 4;
 
-		mov(tempWReg, newLR);
-		str(tempWReg, AdrImm(XReg(HCPU_REG_ID), offsetof(PPCInterpreter_t, spr.LR)));
+		mov(TEMP_GPR_1_WREG, newLR);
+		str(TEMP_GPR_1_WREG, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, spr.LR)));
 
 		uint32 newIP = imlInstruction->op_macro.param2;
 		uint64 lookupOffset = (uint64)offsetof(PPCRecompilerInstanceData_t, ppcRecompilerDirectJumpTable) + (uint64)newIP * 2ULL;
-		mov(tempXReg, lookupOffset);
-		ldr(tempXReg, AdrReg(ppcRec, tempXReg));
-		mov(lrWReg, newIP);
-		br(tempXReg);
+		mov(TEMP_GPR_1_XREG, lookupOffset);
+		ldr(TEMP_GPR_1_XREG, AdrReg(PPC_REC_INSTANCE_REG, TEMP_GPR_1_XREG));
+		mov(LR_WREG, newIP);
+		br(TEMP_GPR_1_XREG);
 		return true;
 	}
 	else if (imlInstruction->operation == PPCREC_IML_MACRO_B_FAR)
 	{
 		uint32 newIP = imlInstruction->op_macro.param2;
 		uint64 lookupOffset = (uint64)offsetof(PPCRecompilerInstanceData_t, ppcRecompilerDirectJumpTable) + (uint64)newIP * 2ULL;
-		mov(tempXReg, lookupOffset);
-		ldr(tempXReg, AdrReg(ppcRec, tempXReg));
-		mov(lrWReg, newIP);
-		br(tempXReg);
+		mov(TEMP_GPR_1_XREG, lookupOffset);
+		ldr(TEMP_GPR_1_XREG, AdrReg(PPC_REC_INSTANCE_REG, TEMP_GPR_1_XREG));
+		mov(LR_WREG, newIP);
+		br(TEMP_GPR_1_XREG);
 		return true;
 	}
 	else if (imlInstruction->operation == PPCREC_IML_MACRO_LEAVE)
 	{
 		uint32 currentInstructionAddress = imlInstruction->op_macro.param;
-		mov(tempXReg, (uint64)offsetof(PPCRecompilerInstanceData_t, ppcRecompilerDirectJumpTable)); // newIP = 0 special value for recompiler exit
-		ldr(tempXReg, AdrReg(ppcRec, tempXReg));
-		mov(lrWReg, currentInstructionAddress);
-		br(tempXReg);
+		mov(TEMP_GPR_1_XREG, (uint64)offsetof(PPCRecompilerInstanceData_t, ppcRecompilerDirectJumpTable)); // newIP = 0 special value for recompiler exit
+		ldr(TEMP_GPR_1_XREG, AdrReg(PPC_REC_INSTANCE_REG, TEMP_GPR_1_XREG));
+		mov(LR_WREG, currentInstructionAddress);
+		br(TEMP_GPR_1_XREG);
 		return true;
 	}
 	else if (imlInstruction->operation == PPCREC_IML_MACRO_DEBUGBREAK)
@@ -718,10 +717,10 @@ bool AArch64GenContext_t::macro(IMLInstruction* imlInstruction)
 	else if (imlInstruction->operation == PPCREC_IML_MACRO_COUNT_CYCLES)
 	{
 		uint32 cycleCount = imlInstruction->op_macro.param;
-		AdrImm adrCycles = AdrImm(hCPU, offsetof(PPCInterpreter_t, remainingCycles));
-		ldr(tempWReg, adrCycles);
-		sub_imm(tempWReg, tempWReg, cycleCount, temp2WReg);
-		str(tempWReg, adrCycles);
+		AdrImm adrCycles = AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, remainingCycles));
+		ldr(TEMP_GPR_1_WREG, adrCycles);
+		sub_imm(TEMP_GPR_1_WREG, TEMP_GPR_1_WREG, cycleCount, TEMP_GPR_2_WREG);
+		str(TEMP_GPR_1_WREG, adrCycles);
 		return true;
 	}
 	else if (imlInstruction->operation == PPCREC_IML_MACRO_HLE)
@@ -731,44 +730,44 @@ bool AArch64GenContext_t::macro(IMLInstruction* imlInstruction)
 		Label cyclesLeftLabel;
 
 		// update instruction pointer
-		mov(tempWReg, ppcAddress);
-		str(tempWReg, AdrImm(hCPU, offsetof(PPCInterpreter_t, instructionPointer)));
+		mov(TEMP_GPR_1_WREG, ppcAddress);
+		str(TEMP_GPR_1_WREG, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, instructionPointer)));
 		// set parameters
 		str(x30, AdrPreImm(sp, -16));
 
-		mov(x0, hCPU);
+		mov(x0, HCPU_REG);
 		mov(w1, funcId);
 		// call HLE function
 
-		mov(tempXReg, (uint64)PPCRecompiler_virtualHLE);
-		blr(tempXReg);
+		mov(TEMP_GPR_1_XREG, (uint64)PPCRecompiler_virtualHLE);
+		blr(TEMP_GPR_1_XREG);
 
-		mov(hCPU, x0);
+		mov(HCPU_REG, x0);
 
 		ldr(x30, AdrPostImm(sp, 16));
 
 		// check if cycles where decreased beyond zero, if yes -> leave recompiler
-		ldr(tempWReg, AdrImm(hCPU, offsetof(PPCInterpreter_t, remainingCycles)));
-		tbz(tempWReg, 31, cyclesLeftLabel); // check if negative
+		ldr(TEMP_GPR_1_WREG, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, remainingCycles)));
+		tbz(TEMP_GPR_1_WREG, 31, cyclesLeftLabel); // check if negative
 
-		mov(tempXReg, offsetof(PPCRecompilerInstanceData_t, ppcRecompilerDirectJumpTable));
-		ldr(tempXReg, AdrReg(ppcRec, tempXReg));
-		ldr(lrWReg, AdrImm(hCPU, offsetof(PPCInterpreter_t, instructionPointer)));
+		mov(TEMP_GPR_1_XREG, offsetof(PPCRecompilerInstanceData_t, ppcRecompilerDirectJumpTable));
+		ldr(TEMP_GPR_1_XREG, AdrReg(PPC_REC_INSTANCE_REG, TEMP_GPR_1_XREG));
+		ldr(LR_WREG, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, instructionPointer)));
 		// JMP [recompilerCallTable+EAX/4*8]
-		br(tempXReg);
+		br(TEMP_GPR_1_XREG);
 
 		L(cyclesLeftLabel);
 		// check if instruction pointer was changed
 		// assign new instruction pointer to EAX
-		ldr(lrWReg, AdrImm(hCPU, offsetof(PPCInterpreter_t, instructionPointer)));
-		mov(tempXReg, offsetof(PPCRecompilerInstanceData_t, ppcRecompilerDirectJumpTable));
+		ldr(LR_WREG, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, instructionPointer)));
+		mov(TEMP_GPR_1_XREG, offsetof(PPCRecompilerInstanceData_t, ppcRecompilerDirectJumpTable));
 		// remember instruction pointer in REG_EDX
 		// EAX *= 2
-		add(tempXReg, tempXReg, lrXReg, ShMod::LSL, 1);
+		add(TEMP_GPR_1_XREG, TEMP_GPR_1_XREG, LR_XREG, ShMod::LSL, 1);
 		// ADD RAX, R15 (R15 -> Pointer to ppcRecompilerInstanceData
-		ldr(tempXReg, AdrReg(ppcRec, tempXReg));
+		ldr(TEMP_GPR_1_XREG, AdrReg(PPC_REC_INSTANCE_REG, TEMP_GPR_1_XREG));
 		// JMP [ppcRecompilerDirectJumpTable+RAX/4*8]
-		br(tempXReg);
+		br(TEMP_GPR_1_XREG);
 		return true;
 	}
 	else if (imlInstruction->operation == PPCREC_IML_MACRO_MFTB)
@@ -778,28 +777,28 @@ bool AArch64GenContext_t::macro(IMLInstruction* imlInstruction)
 		uint32 gprIndex = (imlInstruction->op_macro.param2 >> 16) & 0x1F;
 
 		// update instruction pointer
-		mov(tempWReg, ppcAddress);
-		str(tempWReg, AdrImm(hCPU, offsetof(PPCInterpreter_t, instructionPointer)));
+		mov(TEMP_GPR_1_WREG, ppcAddress);
+		str(TEMP_GPR_1_WREG, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, instructionPointer)));
 		// set parameters
 
-		mov(x0, hCPU);
+		mov(x0, HCPU_REG);
 		mov(x1, gprIndex);
 		// call function
 		if (sprId == SPR_TBL)
-			mov(tempXReg, (uint64)PPCRecompiler_getTBL);
+			mov(TEMP_GPR_1_XREG, (uint64)PPCRecompiler_getTBL);
 		else if (sprId == SPR_TBU)
-			mov(tempXReg, (uint64)PPCRecompiler_getTBU);
+			mov(TEMP_GPR_1_XREG, (uint64)PPCRecompiler_getTBU);
 		else
 			cemu_assert_suspicious();
 
 		str(x30, AdrPreImm(sp, -16));
-		blr(tempXReg);
+		blr(TEMP_GPR_1_XREG);
 		ldr(x30, AdrPostImm(sp, 16));
 		return true;
 	}
 	else
 	{
-		debug_printf("Unknown recompiler macro operation %d\n", imlInstruction->operation);
+		cemuLog_log(LogType::Recompiler, "Unknown recompiler macro operation %d\n", imlInstruction->operation);
 		cemu_assert_suspicious();
 	}
 	return false;
@@ -812,21 +811,17 @@ bool AArch64GenContext_t::load(IMLInstruction* imlInstruction, bool indexed)
 	if (indexed)
 		cemu_assert_debug(imlInstruction->op_storeLoad.registerMem2.GetRegFormat() == IMLRegFormat::I32);
 
-	IMLRegID dataRegId = imlInstruction->op_storeLoad.registerData.GetRegID();
-	IMLRegID memRegId = imlInstruction->op_storeLoad.registerMem.GetRegID();
-	IMLRegID memOffsetRegId = indexed ? imlInstruction->op_storeLoad.registerMem2.GetRegID() : PPC_REC_INVALID_REGISTER;
 	sint32 memOffset = imlInstruction->op_storeLoad.immS32;
 	bool signExtend = imlInstruction->op_storeLoad.flags2.signExtend;
 	bool switchEndian = imlInstruction->op_storeLoad.flags2.swapEndian;
+	WReg memReg = gpReg<WReg>(imlInstruction->op_storeLoad.registerMem.GetRegID());
+	WReg dataReg = gpReg<WReg>(imlInstruction->op_storeLoad.registerData.GetRegID());
 
-	WReg memReg = WReg(memRegId);
-	WReg dataReg = WReg(dataRegId);
-
-	add_imm(tempWReg, memReg, memOffset, tempWReg);
+	add_imm(TEMP_GPR_1_WREG, memReg, memOffset, TEMP_GPR_1_WREG);
 	if (indexed)
-		add(tempWReg, tempWReg, WReg(memOffsetRegId));
+		add(TEMP_GPR_1_WREG, TEMP_GPR_1_WREG, gpReg<WReg>(imlInstruction->op_storeLoad.registerMem2.GetRegID()));
 
-	auto adr = AdrExt(memBase, tempWReg, ExtMod::UXTW);
+	auto adr = AdrExt(MEM_BASE_REG, TEMP_GPR_1_WREG, ExtMod::UXTW);
 	if (imlInstruction->op_storeLoad.copyWidth == 32)
 	{
 		ldr(dataReg, adr);
@@ -873,21 +868,21 @@ bool AArch64GenContext_t::store(IMLInstruction* imlInstruction, bool indexed)
 	if (indexed)
 		cemu_assert_debug(imlInstruction->op_storeLoad.registerMem2.GetRegFormat() == IMLRegFormat::I32);
 
-	WReg dataReg = WReg(imlInstruction->op_storeLoad.registerData.GetRegID());
-	WReg memReg = WReg(imlInstruction->op_storeLoad.registerMem.GetRegID());
+	WReg dataReg = gpReg<WReg>(imlInstruction->op_storeLoad.registerData.GetRegID());
+	WReg memReg = gpReg<WReg>(imlInstruction->op_storeLoad.registerMem.GetRegID());
 	sint32 memOffset = imlInstruction->op_storeLoad.immS32;
 	bool swapEndian = imlInstruction->op_storeLoad.flags2.swapEndian;
 
-	add_imm(tempWReg, memReg, memOffset, tempWReg);
+	add_imm(TEMP_GPR_1_WREG, memReg, memOffset, TEMP_GPR_1_WREG);
 	if (indexed)
-		add(tempWReg, tempWReg, WReg(imlInstruction->op_storeLoad.registerMem2.GetRegID()));
-	AdrExt adr = AdrExt(memBase, tempWReg, ExtMod::UXTW);
+		add(TEMP_GPR_1_WREG, TEMP_GPR_1_WREG, gpReg<WReg>(imlInstruction->op_storeLoad.registerMem2.GetRegID()));
+	AdrExt adr = AdrExt(MEM_BASE_REG, TEMP_GPR_1_WREG, ExtMod::UXTW);
 	if (imlInstruction->op_storeLoad.copyWidth == 32)
 	{
 		if (swapEndian)
 		{
-			rev(temp2WReg, dataReg);
-			str(temp2WReg, adr);
+			rev(TEMP_GPR_2_WREG, dataReg);
+			str(TEMP_GPR_2_WREG, adr);
 		}
 		else
 		{
@@ -898,9 +893,8 @@ bool AArch64GenContext_t::store(IMLInstruction* imlInstruction, bool indexed)
 	{
 		if (swapEndian)
 		{
-			rev(temp2WReg, dataReg);
-			lsr(temp2WReg, temp2WReg, 16);
-			strh(temp2WReg, adr);
+			rev16(TEMP_GPR_2_WREG, dataReg);
+			strh(TEMP_GPR_2_WREG, adr);
 		}
 		else
 		{
@@ -920,191 +914,206 @@ bool AArch64GenContext_t::store(IMLInstruction* imlInstruction, bool indexed)
 
 void AArch64GenContext_t::atomic_cmp_store(IMLInstruction* imlInstruction)
 {
-	WReg outReg = WReg(imlInstruction->op_atomic_compare_store.regBoolOut.GetRegID());
-	WReg eaReg = WReg(imlInstruction->op_atomic_compare_store.regEA.GetRegID());
-	WReg valReg = WReg(imlInstruction->op_atomic_compare_store.regWriteValue.GetRegID());
-	WReg cmpValReg = WReg(imlInstruction->op_atomic_compare_store.regCompareValue.GetRegID());
+	WReg outReg = gpReg<WReg>(imlInstruction->op_atomic_compare_store.regBoolOut.GetRegID());
+	WReg eaReg = gpReg<WReg>(imlInstruction->op_atomic_compare_store.regEA.GetRegID());
+	WReg valReg = gpReg<WReg>(imlInstruction->op_atomic_compare_store.regWriteValue.GetRegID());
+	WReg cmpValReg = gpReg<WReg>(imlInstruction->op_atomic_compare_store.regCompareValue.GetRegID());
 
-	Label endCmpStore;
-	Label notEqual;
-	Label storeFailed;
+	if (s_cpu.isAtomicSupported())
+	{
+		mov(TEMP_GPR_2_WREG, cmpValReg);
+		add(TEMP_GPR_1_XREG, MEM_BASE_REG, eaReg, ExtMod::UXTW);
+		casal(TEMP_GPR_2_WREG, valReg, AdrNoOfs(TEMP_GPR_1_XREG));
+		cmp(TEMP_GPR_2_WREG, cmpValReg);
+		cset(outReg, Cond::EQ);
+	}
+	else
+	{
+		Label endCmpStore;
+		Label notEqual;
+		Label storeFailed;
 
-	add(tempXReg, memBase, eaReg, ExtMod::UXTW);
-	L(storeFailed);
-	ldaxr(temp2WReg, AdrNoOfs(tempXReg));
-	cmp(temp2WReg, cmpValReg);
-	bne(notEqual);
-	stlxr(temp2WReg, valReg, AdrNoOfs(tempXReg));
-	cbnz(temp2WReg, storeFailed);
-	mov(outReg, 1);
-	b(endCmpStore);
+		add(TEMP_GPR_1_XREG, MEM_BASE_REG, eaReg, ExtMod::UXTW);
+		L(storeFailed);
+		ldaxr(TEMP_GPR_2_WREG, AdrNoOfs(TEMP_GPR_1_XREG));
+		cmp(TEMP_GPR_2_WREG, cmpValReg);
+		bne(notEqual);
+		stlxr(TEMP_GPR_2_WREG, valReg, AdrNoOfs(TEMP_GPR_1_XREG));
+		cbnz(TEMP_GPR_2_WREG, storeFailed);
+		mov(outReg, 1);
+		b(endCmpStore);
 
-	L(notEqual);
-	mov(outReg, 0);
-	L(endCmpStore);
+		L(notEqual);
+		mov(outReg, 0);
+		L(endCmpStore);
+	}
 }
 
-void AArch64GenContext_t::gqr_generateScaleCode(VReg& dataReg, bool isLoad, bool scalePS1, IMLReg registerGQR)
+void AArch64GenContext_t::gqr_generateScaleCode(VReg& dataReg, bool isLoad, bool scalePS1, const IMLReg& registerGQR)
 {
-	auto gqrReg = XReg(registerGQR.GetRegID());
+	auto gqrReg = gpReg<XReg>(registerGQR.GetRegID());
 	// load GQR
-	mov(tempXReg, gqrReg);
+	mov(TEMP_GPR_1_XREG, gqrReg);
 	// extract scale field and multiply by 16 to get array offset
-	lsr(tempWReg, tempWReg, (isLoad ? 16 : 0) + 8 - 4);
-	and_(tempWReg, tempWReg, (0x3F << 4));
+	lsr(TEMP_GPR_1_WREG, TEMP_GPR_1_WREG, (isLoad ? 16 : 0) + 8 - 4);
+	and_(TEMP_GPR_1_WREG, TEMP_GPR_1_WREG, (0x3F << 4));
 	// multiply dataReg by scale
-	add(tempXReg, tempXReg, ppcRec);
+	add(TEMP_GPR_1_XREG, TEMP_GPR_1_XREG, PPC_REC_INSTANCE_REG);
 	if (isLoad)
 	{
 		if (scalePS1)
-			mov(temp2XReg, offsetof(PPCRecompilerInstanceData_t, _psq_ld_scale_ps0_ps1));
+			mov(TEMP_GPR_2_XREG, offsetof(PPCRecompilerInstanceData_t, _psq_ld_scale_ps0_ps1));
 		else
-			mov(temp2XReg, offsetof(PPCRecompilerInstanceData_t, _psq_ld_scale_ps0_1));
+			mov(TEMP_GPR_2_XREG, offsetof(PPCRecompilerInstanceData_t, _psq_ld_scale_ps0_1));
 	}
 	else
 	{
 		if (scalePS1)
-			mov(temp2XReg, offsetof(PPCRecompilerInstanceData_t, _psq_st_scale_ps0_ps1));
+			mov(TEMP_GPR_2_XREG, offsetof(PPCRecompilerInstanceData_t, _psq_st_scale_ps0_ps1));
 		else
-			mov(temp2XReg, offsetof(PPCRecompilerInstanceData_t, _psq_st_scale_ps0_1));
+			mov(TEMP_GPR_2_XREG, offsetof(PPCRecompilerInstanceData_t, _psq_st_scale_ps0_1));
 	}
-	add(tempXReg, tempXReg, temp2XReg);
-	ld1(temp2VReg.d2, AdrNoOfs(tempXReg));
-	fmul(dataReg.d2, dataReg.d2, temp2VReg.d2);
+	add(TEMP_GPR_1_XREG, TEMP_GPR_1_XREG, TEMP_GPR_2_XREG);
+	ld1(TEMP_FPR_2_VREG.d2, AdrNoOfs(TEMP_GPR_1_XREG));
+	fmul(dataReg.d2, dataReg.d2, TEMP_FPR_2_VREG.d2);
 }
 
 // generate code for PSQ load for a particular type
 // if scaleGQR is -1 then a scale of 1.0 is assumed (no scale)
-void AArch64GenContext_t::psq_load(uint8 mode, VReg& dataReg, WReg& memReg, WReg& indexReg, sint32 memImmS32, bool indexed, IMLReg registerGQR)
+void AArch64GenContext_t::psq_load(uint8 mode, VReg& dataReg, WReg& memReg, WReg& indexReg, sint32 memImmS32, bool indexed, const IMLReg& registerGQR)
 {
 	if (mode == PPCREC_FPR_LD_MODE_PSQ_FLOAT_PS0_PS1)
 	{
-		add_imm(tempWReg, memReg, memImmS32, tempWReg);
+		add_imm(TEMP_GPR_1_WREG, memReg, memImmS32, TEMP_GPR_1_WREG);
 		if (indexed)
 			cemu_assert_suspicious();
-		ldr(tempXReg, AdrExt(memBase, tempWReg, ExtMod::UXTW));
-		rev(tempXReg, tempXReg);
-		ror(tempXReg, tempXReg, 32); // swap upper and lower DWORD
-		mov(dataReg.d[0], tempXReg);
+		ldr(DReg(dataReg.getIdx()), AdrExt(MEM_BASE_REG, TEMP_GPR_1_WREG, ExtMod::UXTW));
+		rev32(dataReg.b16, dataReg.b16);
 		fcvtl(dataReg.d2, dataReg.s2);
 		// note: floats are not scaled
 	}
 	else if (mode == PPCREC_FPR_LD_MODE_PSQ_FLOAT_PS0)
 	{
-		add_imm(tempWReg, memReg, memImmS32, tempWReg);
+		add_imm(TEMP_GPR_1_WREG, memReg, memImmS32, TEMP_GPR_1_WREG);
 		if (indexed)
 			cemu_assert_suspicious();
-		ldr(tempWReg, AdrExt(memBase, tempWReg, ExtMod::UXTW));
-		rev(tempWReg, tempWReg);
-		mov(dataReg.s[0], tempWReg);
+		ldr(SReg(dataReg.getIdx()), AdrExt(MEM_BASE_REG, TEMP_GPR_1_WREG, ExtMod::UXTW));
+		rev32(dataReg.b8, dataReg.b8);
 		fcvtl(dataReg.d2, dataReg.s2);
-
 		// load constant 1.0 to temp register
-		mov(tempXReg, DOUBLE_1_0);
+		mov(TEMP_GPR_1_XREG, DOUBLE_1_0);
 		// overwrite lower half with single from memory
-		mov(dataReg.d[1], tempXReg);
+		mov(dataReg.d[1], TEMP_GPR_1_XREG);
 		// note: floats are not scaled
 	}
 	else
 	{
-		sint32 readSize;
-		bool isSigned;
-		if (mode == PPCREC_FPR_LD_MODE_PSQ_S16_PS0 || mode == PPCREC_FPR_LD_MODE_PSQ_S16_PS0_PS1)
-		{
-			readSize = 16;
-			isSigned = true;
-		}
-		else if (mode == PPCREC_FPR_LD_MODE_PSQ_U16_PS0 || mode == PPCREC_FPR_LD_MODE_PSQ_U16_PS0_PS1)
-		{
-			readSize = 16;
-			isSigned = false;
-		}
-		else if (mode == PPCREC_FPR_LD_MODE_PSQ_S8_PS0 || mode == PPCREC_FPR_LD_MODE_PSQ_S8_PS0_PS1)
-		{
-			readSize = 8;
-			isSigned = true;
-		}
-		else if (mode == PPCREC_FPR_LD_MODE_PSQ_U8_PS0 || mode == PPCREC_FPR_LD_MODE_PSQ_U8_PS0_PS1)
-		{
-			readSize = 8;
-			isSigned = false;
-		}
-		else
-		{
-			cemu_assert_suspicious();
-			return;
-		}
-
-		bool loadPS1 = mode == PPCREC_FPR_LD_MODE_PSQ_S16_PS0_PS1 ||
-					   mode == PPCREC_FPR_LD_MODE_PSQ_U16_PS0_PS1 ||
-					   mode == PPCREC_FPR_LD_MODE_PSQ_U8_PS0_PS1 ||
-					   mode == PPCREC_FPR_LD_MODE_PSQ_S8_PS0_PS1;
 		if (indexed)
 			cemu_assert_suspicious();
-		for (sint32 wordIndex = 0; wordIndex < 2; wordIndex++)
+		bool loadPS1 = false;
+		add_imm(TEMP_GPR_1_WREG, memReg, memImmS32, TEMP_GPR_1_WREG);
+		auto adr = AdrExt(MEM_BASE_REG, TEMP_GPR_1_WREG, ExtMod::UXTW);
+		if (mode == PPCREC_FPR_LD_MODE_PSQ_S16_PS0_PS1 || mode == PPCREC_FPR_LD_MODE_PSQ_U16_PS0_PS1)
 		{
-			// read from memory
-			if (wordIndex == 1 && !loadPS1)
+			loadPS1 = true;
+			ldr(SReg(dataReg.getIdx()), adr);
+			rev16(dataReg.b16, dataReg.b16);
+			if (mode == PPCREC_FPR_LD_MODE_PSQ_S16_PS0_PS1)
 			{
-				// store constant 1
-				mov(tempXReg, 1);
-				mov(dataReg.d[wordIndex], tempXReg);
+				smov(TEMP_GPR_1_XREG, dataReg.h[1]);
+				mov(dataReg.d[1], TEMP_GPR_1_XREG);
+				smov(TEMP_GPR_1_XREG, dataReg.h[0]);
+				mov(dataReg.d[0], TEMP_GPR_1_XREG);
+				scvtf(dataReg.d2, dataReg.d2);
 			}
 			else
 			{
-				sint32 memOffset = memImmS32 + wordIndex * (readSize / 8);
-				add_imm(tempWReg, memReg, memOffset, tempWReg);
-				auto adr = AdrExt(memBase, tempWReg, ExtMod::UXTW);
-				if (readSize == 16)
-				{
-					// half word
-					ldrh(tempWReg, adr);
-					rev(tempWReg, tempWReg); // endian swap
-					lsr(tempWReg, tempWReg, 16);
-					if (isSigned)
-						sxth(tempXReg, tempWReg);
-				}
-				else
-				{
-					// byte
-					if (isSigned)
-						ldrsb(tempXReg, adr);
-					else
-						ldrb(tempWReg, adr);
-				}
-				// store
-				mov(dataReg.d[wordIndex], tempXReg);
+				mov(dataReg.h[4], dataReg.h[1]);
+				mov(dataReg.h[1], wzr);
+				ucvtf(dataReg.d2, dataReg.d2);
 			}
 		}
-		// convert the two integers to doubles
-		scvtf(dataReg.d2, dataReg.d2);
+		else if (mode == PPCREC_FPR_LD_MODE_PSQ_S16_PS0 || mode == PPCREC_FPR_LD_MODE_PSQ_U16_PS0)
+		{
+			add_imm(TEMP_GPR_1_WREG, memReg, memImmS32, TEMP_GPR_1_WREG);
+			ldr(HReg(dataReg.getIdx()), adr);
+			rev16(dataReg.b16, dataReg.b16);
+			mov(TEMP_GPR_1_XREG, 1);
+			mov(dataReg.d[1], TEMP_GPR_1_XREG);
+			if (mode == PPCREC_FPR_LD_MODE_PSQ_S16_PS0)
+			{
+				smov(TEMP_GPR_1_XREG, dataReg.h[0]);
+				mov(dataReg.d[0], TEMP_GPR_1_XREG);
+				scvtf(dataReg.d2, dataReg.d2);
+			}
+			else
+			{
+				ucvtf(dataReg.d2, dataReg.d2);
+			}
+		}
+		else if (mode == PPCREC_FPR_LD_MODE_PSQ_S8_PS0_PS1 || mode == PPCREC_FPR_LD_MODE_PSQ_U8_PS0_PS1)
+		{
+			loadPS1 = true;
+			add_imm(TEMP_GPR_1_WREG, memReg, memImmS32, TEMP_GPR_1_WREG);
+			ldr(HReg(dataReg.getIdx()), adr);
+			if (mode == PPCREC_FPR_LD_MODE_PSQ_S8_PS0_PS1)
+			{
+				smov(TEMP_GPR_1_XREG, dataReg.b[1]);
+				mov(dataReg.d[1], TEMP_GPR_1_XREG);
+				smov(TEMP_GPR_1_XREG, dataReg.b[0]);
+				mov(dataReg.d[0], TEMP_GPR_1_XREG);
+				scvtf(dataReg.d2, dataReg.d2);
+			}
+			else
+			{
+				mov(dataReg.b[8], dataReg.b[1]);
+				mov(dataReg.b[1], wzr);
+				ucvtf(dataReg.d2, dataReg.d2);
+			}
+		}
+		else if (mode == PPCREC_FPR_LD_MODE_PSQ_S8_PS0 || mode == PPCREC_FPR_LD_MODE_PSQ_U8_PS0)
+		{
+			add_imm(TEMP_GPR_1_WREG, memReg, memImmS32, TEMP_GPR_1_WREG);
+			ldr(BReg(dataReg.getIdx()), adr);
+			mov(TEMP_GPR_1_XREG, 1);
+			mov(dataReg.d[1], TEMP_GPR_1_XREG);
+			if (mode == PPCREC_FPR_LD_MODE_PSQ_S8_PS0)
+			{
+				smov(TEMP_GPR_1_XREG, dataReg.b[0]);
+				mov(dataReg.d[0], TEMP_GPR_1_XREG);
+				scvtf(dataReg.d2, dataReg.d2);
+			}
+			else
+			{
+				ucvtf(dataReg.d2, dataReg.d2);
+			}
+		}
 		// scale
 		if (registerGQR.IsValid())
 			gqr_generateScaleCode(dataReg, true, loadPS1, registerGQR);
 	}
 }
 
-void AArch64GenContext_t::psq_load_generic(uint8 mode, VReg& dataReg, WReg& memReg, WReg& indexReg, sint32 memImmS32, bool indexed, IMLReg registerGQR)
+void AArch64GenContext_t::psq_load_generic(uint8 mode, VReg& dataReg, WReg& memReg, WReg& indexReg, sint32 memImmS32, bool indexed, const IMLReg& registerGQR)
 {
 	bool loadPS1 = (mode == PPCREC_FPR_LD_MODE_PSQ_GENERIC_PS0_PS1);
-	auto tempReg32 = WReg(TEMP_REGISTER_ID);
 	Label u8FormatLabel, u16FormatLabel, s8FormatLabel, s16FormatLabel, casesEndLabel;
 
 	// load GQR & extract load type field
-	lsr(tempReg32, WReg(registerGQR.GetRegID()), 16);
-	and_(tempReg32, tempReg32, 7);
+	lsr(TEMP_GPR_1_WREG, gpReg<WReg>(registerGQR.GetRegID()), 16);
+	and_(TEMP_GPR_1_WREG, TEMP_GPR_1_WREG, 7);
 
 	// jump cases
-	cmp(tempReg32, 4); // type 4 -> u8
+	cmp(TEMP_GPR_1_WREG, 4); // type 4 -> u8
 	beq(u8FormatLabel);
 
-	cmp(tempReg32, 5); // type 5 -> u16
+	cmp(TEMP_GPR_1_WREG, 5); // type 5 -> u16
 	beq(u16FormatLabel);
 
-	cmp(tempReg32, 6); // type 6 -> s8
+	cmp(TEMP_GPR_1_WREG, 6); // type 6 -> s8
 	beq(s8FormatLabel);
 
-	cmp(tempReg32, 7); // type 7 -> s16
+	cmp(TEMP_GPR_1_WREG, 7); // type 7 -> s16
 	beq(s16FormatLabel);
 
 	// default case -> float
@@ -1136,19 +1145,19 @@ bool AArch64GenContext_t::fpr_load(IMLInstruction* imlInstruction, bool indexed)
 	IMLRegID dataRegId = imlInstruction->op_storeLoad.registerData.GetRegID();
 	VReg dataVReg = fpReg<VReg>(imlInstruction->op_storeLoad.registerData.GetRegID());
 	SReg dataSReg = fpReg<SReg>(dataRegId);
-	WReg realRegisterMem = WReg(imlInstruction->op_storeLoad.registerMem.GetRegID());
-	WReg realRegisterMem2 = indexed ? WReg(imlInstruction->op_storeLoad.registerMem2.GetRegID()) : wzr;
+	WReg realRegisterMem = gpReg<WReg>(imlInstruction->op_storeLoad.registerMem.GetRegID());
+	WReg realRegisterMem2 = indexed ? gpReg<WReg>(imlInstruction->op_storeLoad.registerMem2.GetRegID()) : wzr;
 	sint32 adrOffset = imlInstruction->op_storeLoad.immS32;
 	uint8 mode = imlInstruction->op_storeLoad.mode;
 
 	if (mode == PPCREC_FPR_LD_MODE_SINGLE_INTO_PS0_PS1)
 	{
-		add_imm(tempWReg, realRegisterMem, adrOffset, tempWReg);
+		add_imm(TEMP_GPR_1_WREG, realRegisterMem, adrOffset, TEMP_GPR_1_WREG);
 		if (indexed)
-			add(tempWReg, tempWReg, realRegisterMem2);
-		ldr(tempWReg, AdrExt(memBase, tempWReg, ExtMod::UXTW));
-		rev(tempWReg, tempWReg);
-		fmov(dataSReg, tempWReg);
+			add(TEMP_GPR_1_WREG, TEMP_GPR_1_WREG, realRegisterMem2);
+		ldr(TEMP_GPR_1_WREG, AdrExt(MEM_BASE_REG, TEMP_GPR_1_WREG, ExtMod::UXTW));
+		rev(TEMP_GPR_1_WREG, TEMP_GPR_1_WREG);
+		fmov(dataSReg, TEMP_GPR_1_WREG);
 
 		if (imlInstruction->op_storeLoad.flags2.notExpanded)
 		{
@@ -1162,12 +1171,12 @@ bool AArch64GenContext_t::fpr_load(IMLInstruction* imlInstruction, bool indexed)
 	}
 	else if (mode == PPCREC_FPR_LD_MODE_DOUBLE_INTO_PS0)
 	{
-		add_imm(tempWReg, realRegisterMem, adrOffset, tempWReg);
+		add_imm(TEMP_GPR_1_WREG, realRegisterMem, adrOffset, TEMP_GPR_1_WREG);
 		if (indexed)
-			add(tempWReg, tempWReg, realRegisterMem2);
-		ldr(tempXReg, AdrExt(memBase, tempWReg, ExtMod::UXTW));
-		rev(tempXReg, tempXReg);
-		mov(dataVReg.d[0], tempXReg);
+			add(TEMP_GPR_1_WREG, TEMP_GPR_1_WREG, realRegisterMem2);
+		ldr(TEMP_GPR_1_XREG, AdrExt(MEM_BASE_REG, TEMP_GPR_1_WREG, ExtMod::UXTW));
+		rev(TEMP_GPR_1_XREG, TEMP_GPR_1_XREG);
+		mov(dataVReg.d[0], TEMP_GPR_1_XREG);
 	}
 	else if (mode == PPCREC_FPR_LD_MODE_PSQ_FLOAT_PS0_PS1 ||
 			 mode == PPCREC_FPR_LD_MODE_PSQ_FLOAT_PS0 ||
@@ -1194,7 +1203,7 @@ bool AArch64GenContext_t::fpr_load(IMLInstruction* imlInstruction, bool indexed)
 	return true;
 }
 
-void AArch64GenContext_t::psq_store(uint8 mode, IMLRegID dataRegId, WReg& memReg, WReg& indexReg, sint32 memOffset, bool indexed, IMLReg registerGQR)
+void AArch64GenContext_t::psq_store(uint8 mode, IMLRegID dataRegId, WReg& memReg, WReg& indexReg, sint32 memOffset, bool indexed, const IMLReg& registerGQR)
 {
 	auto dataVReg = fpReg<VReg>(dataRegId);
 	auto dataDReg = fpReg<DReg>(dataRegId);
@@ -1209,137 +1218,161 @@ void AArch64GenContext_t::psq_store(uint8 mode, IMLRegID dataRegId, WReg& memReg
 	if (registerGQR.IsValid())
 	{
 		// move to temporary reg and update data reg
-		mov(tempVReg.b16, dataVReg.b16);
-		dataVReg = tempVReg;
+		mov(TEMP_FPR_1_VREG.b16, dataVReg.b16);
+		dataVReg = TEMP_FPR_1_VREG;
 		// apply scale
 		if (!isFloat)
 			gqr_generateScaleCode(dataVReg, false, storePS1, registerGQR);
 	}
 	if (mode == PPCREC_FPR_ST_MODE_PSQ_FLOAT_PS0)
 	{
-		add_imm(tempWReg, memReg, memOffset, tempWReg);
+		add_imm(TEMP_GPR_1_WREG, memReg, memOffset, TEMP_GPR_1_WREG);
 		if (indexed)
-			add(tempWReg, tempWReg, indexReg);
-		fcvt(tempSReg, dataDReg);
-		fmov(temp2WReg, tempSReg);
-		rev(temp2WReg, temp2WReg);
-		str(temp2WReg, AdrExt(memBase, tempWReg, ExtMod::UXTW));
+			add(TEMP_GPR_1_WREG, TEMP_GPR_1_WREG, indexReg);
+		fcvt(TEMP_FPR_1_SREG, dataDReg);
+		rev32(TEMP_FPR_1_VREG.b8, TEMP_FPR_1_VREG.b8);
+		str(TEMP_FPR_1_SREG, AdrExt(MEM_BASE_REG, TEMP_GPR_1_WREG, ExtMod::UXTW));
 	}
 	else if (mode == PPCREC_FPR_ST_MODE_PSQ_FLOAT_PS0_PS1)
 	{
-		add_imm(tempWReg, memReg, memOffset, tempWReg);
+		add_imm(TEMP_GPR_1_WREG, memReg, memOffset, TEMP_GPR_1_WREG);
 		if (indexed)
-			add(tempWReg, tempWReg, indexReg);
-		fcvtn(tempVReg.s2, dataVReg.d2);
-		mov(temp2XReg, tempVReg.d[0]);
-		ror(temp2XReg, temp2XReg, 32); // swap upper and lower DWORD
-		rev(temp2XReg, temp2XReg);
-		str(temp2XReg, AdrExt(memBase, tempWReg, ExtMod::UXTW));
+			add(TEMP_GPR_1_WREG, TEMP_GPR_1_WREG, indexReg);
+		fcvtn(TEMP_FPR_1_VREG.s2, dataVReg.d2);
+		rev32(TEMP_FPR_1_VREG.b8, TEMP_FPR_1_VREG.b8);
+		str(TEMP_FPR_1_DREG, AdrExt(MEM_BASE_REG, TEMP_GPR_1_WREG, ExtMod::UXTW));
 	}
 	else
 	{
 		// store as integer
-		// set clamp from mode
-		sint32 bitWriteSize;
-		std::function<void()> clamp;
-		if (mode == PPCREC_FPR_ST_MODE_PSQ_S8_PS0 || mode == PPCREC_FPR_ST_MODE_PSQ_S8_PS0_PS1)
+		if (indexed)
+			cemu_assert_suspicious(); // unsupported
+
+		if (mode == PPCREC_FPR_ST_MODE_PSQ_U8_PS0 || mode == PPCREC_FPR_ST_MODE_PSQ_U16_PS0)
 		{
-			clamp = [&]() {
-				mov(temp2WReg, -128);
-				cmn(tempWReg, 128);
-				csel(temp2WReg, tempWReg, temp2WReg, Cond::GT);
-				mov(tempWReg, 127);
-				cmp(temp2WReg, 127);
-				csel(temp2WReg, temp2WReg, tempWReg, Cond::LT);
-			};
-			bitWriteSize = 8;
+			fcvtzs(TEMP_GPR_1_WREG, dataDReg);
+			uint64 maxVal = mode == PPCREC_FPR_ST_MODE_PSQ_U8_PS0 ? 255 : 65535;
+			// clamp
+			mov(TEMP_GPR_2_WREG, maxVal);
+			bic(TEMP_GPR_1_WREG, TEMP_GPR_1_WREG, TEMP_GPR_1_WREG, ShMod::ASR, 31);
+			cmp(TEMP_GPR_1_WREG, TEMP_GPR_2_WREG);
+			csel(TEMP_GPR_2_WREG, TEMP_GPR_1_WREG, TEMP_GPR_2_WREG, Cond::LT);
+			// write to memory
+			add_imm(TEMP_GPR_1_WREG, memReg, memOffset, TEMP_GPR_1_WREG);
+			auto adr = AdrExt(MEM_BASE_REG, TEMP_GPR_1_WREG, ExtMod::UXTW);
+			if (mode == PPCREC_FPR_ST_MODE_PSQ_U8_PS0)
+			{
+				strb(TEMP_GPR_2_WREG, AdrExt(MEM_BASE_REG, TEMP_GPR_1_WREG, ExtMod::UXTW));
+			}
+			else
+			{
+				rev16(TEMP_GPR_2_WREG, TEMP_GPR_2_WREG);
+				strh(TEMP_GPR_2_WREG, AdrExt(MEM_BASE_REG, TEMP_GPR_1_WREG, ExtMod::UXTW));
+			}
 		}
-		else if (mode == PPCREC_FPR_ST_MODE_PSQ_U8_PS0 || mode == PPCREC_FPR_ST_MODE_PSQ_U8_PS0_PS1)
+		else if (mode == PPCREC_FPR_ST_MODE_PSQ_S8_PS0 || mode == PPCREC_FPR_ST_MODE_PSQ_S16_PS0)
 		{
-			clamp = [&]() {
-				mov(temp2WReg, 255);
-				bic(tempWReg, tempWReg, tempWReg, ShMod::ASR, 31);
-				cmp(tempWReg, 255);
-				csel(temp2WReg, tempWReg, temp2WReg, Cond::LT);
-			};
-			bitWriteSize = 8;
+			fcvtzs(TEMP_GPR_1_WREG, dataDReg);
+			sint32 maxVal;
+			sint32 minVal;
+			if (mode == PPCREC_FPR_ST_MODE_PSQ_S8_PS0)
+			{
+				maxVal = 127;
+				minVal = -128;
+			}
+			else
+			{
+				maxVal = 32767;
+				minVal = -32768;
+			}
+			// clamp
+			mov(TEMP_GPR_2_WREG, minVal);
+			cmp(TEMP_GPR_1_WREG, TEMP_GPR_2_WREG);
+			csel(TEMP_GPR_2_WREG, TEMP_GPR_1_WREG, TEMP_GPR_2_WREG, Cond::GT);
+			mov(TEMP_GPR_1_WREG, maxVal);
+			cmp(TEMP_GPR_2_WREG, TEMP_GPR_1_WREG);
+			csel(TEMP_GPR_2_WREG, TEMP_GPR_2_WREG, TEMP_GPR_1_WREG, Cond::LT);
+			add_imm(TEMP_GPR_1_WREG, memReg, memOffset, TEMP_GPR_1_WREG);
+			auto adr = AdrExt(MEM_BASE_REG, TEMP_GPR_1_WREG, ExtMod::UXTW);
+			// write to memory
+			if (mode == PPCREC_FPR_ST_MODE_PSQ_S8_PS0)
+			{
+				strb(TEMP_GPR_2_WREG, adr);
+			}
+			else
+			{
+				rev16(TEMP_GPR_2_WREG, TEMP_GPR_2_WREG);
+				strh(TEMP_GPR_2_WREG, adr);
+			}
 		}
-		else if (mode == PPCREC_FPR_ST_MODE_PSQ_U16_PS0 || mode == PPCREC_FPR_ST_MODE_PSQ_U16_PS0_PS1)
+		else if (mode == PPCREC_FPR_ST_MODE_PSQ_S8_PS0_PS1 || mode == PPCREC_FPR_ST_MODE_PSQ_U8_PS0_PS1)
 		{
-			clamp = [&]() {
-				mov(temp2WReg, 65535);
-				bic(tempWReg, tempWReg, tempWReg, ShMod::ASR, 31);
-				cmp(tempWReg, temp2WReg);
-				csel(temp2WReg, tempWReg, temp2WReg, Cond::LT);
-			};
-			bitWriteSize = 16;
+			fcvtzs(TEMP_FPR_1_VREG.d2, dataVReg.d2);
+			xtn(TEMP_FPR_1_VREG.s2, TEMP_FPR_1_VREG.d2);
+			// clamp
+			if (mode == PPCREC_FPR_ST_MODE_PSQ_S8_PS0_PS1)
+				movi(TEMP_FPR_2_VREG.s2, 127);
+			else
+				movi(TEMP_FPR_2_DREG, (255UL << 32 | 255UL));
+			smin(TEMP_FPR_1_VREG.s2, TEMP_FPR_1_VREG.s2, TEMP_FPR_2_VREG.s2);
+			if (mode == PPCREC_FPR_ST_MODE_PSQ_S8_PS0_PS1)
+				mvni(TEMP_FPR_2_VREG.s2, 127);
+			else
+				movi(TEMP_FPR_2_DREG, 0);
+			smax(TEMP_FPR_1_VREG.s2, TEMP_FPR_1_VREG.s2, TEMP_FPR_2_VREG.s2);
+			mov(TEMP_FPR_1_VREG.b[1], TEMP_FPR_1_VREG.b[4]);
+			// write to memory
+			add_imm(TEMP_GPR_1_WREG, memReg, memOffset, TEMP_GPR_1_WREG);
+			str(TEMP_FPR_1_HREG, AdrExt(MEM_BASE_REG, TEMP_GPR_1_WREG, ExtMod::UXTW));
 		}
-		else if (mode == PPCREC_FPR_ST_MODE_PSQ_S16_PS0 || mode == PPCREC_FPR_ST_MODE_PSQ_S16_PS0_PS1)
+		else if (mode == PPCREC_FPR_ST_MODE_PSQ_S16_PS0_PS1 || mode == PPCREC_FPR_ST_MODE_PSQ_U16_PS0_PS1)
 		{
-			clamp = [&]() {
-				mov(temp2WReg, -32768);
-				cmn(tempWReg, 8, 12);
-				csel(temp2WReg, tempWReg, temp2WReg, Cond::GT);
-				mov(tempWReg, 32767);
-				cmp(temp2WReg, tempWReg);
-				csel(temp2WReg, temp2WReg, tempWReg, Cond::LT);
-			};
-			bitWriteSize = 16;
+			fcvtzs(TEMP_FPR_1_VREG.d2, dataVReg.d2);
+			xtn(TEMP_FPR_1_VREG.s2, TEMP_FPR_1_VREG.d2);
+			// clamp
+			if (mode == PPCREC_FPR_ST_MODE_PSQ_S16_PS0_PS1)
+				movi(TEMP_FPR_2_VREG.s2, 127, ShMod::MSL, 8); // Load 32767 in temp2VReg.2s
+			else
+				movi(TEMP_FPR_2_DREG, (65535UL << 32) | 65535UL);
+			smin(TEMP_FPR_1_VREG.s2, TEMP_FPR_1_VREG.s2, TEMP_FPR_2_VREG.s2);
+			if (mode == PPCREC_FPR_ST_MODE_PSQ_S16_PS0_PS1)
+				mvni(TEMP_FPR_2_VREG.s2, 127, ShMod::MSL, 8); // Load -32768 in temp2VReg.2s
+			else
+				movi(TEMP_FPR_2_DREG, 0);
+			smax(TEMP_FPR_1_VREG.s2, TEMP_FPR_1_VREG.s2, TEMP_FPR_2_VREG.s2);
+			mov(TEMP_FPR_1_VREG.h[1], TEMP_FPR_1_VREG.h[2]);
+			// endian swap
+			rev16(TEMP_FPR_1_VREG.b8, TEMP_FPR_1_VREG.b8);
+			// write to memory
+			add_imm(TEMP_GPR_1_WREG, memReg, memOffset, TEMP_GPR_1_WREG);
+			str(TEMP_FPR_1_SREG, AdrExt(MEM_BASE_REG, TEMP_GPR_1_WREG, ExtMod::UXTW));
 		}
 		else
 		{
 			cemu_assert_suspicious();
 			return;
 		}
-
-		if (indexed)
-			cemu_assert_suspicious(); // unsupported
-
-		fcvtn(tempVReg.s2, dataVReg.d2);
-		fcvtzs(tempVReg.s2, tempVReg.s2);
-		for (sint32 valueIndex = 0; valueIndex < (storePS1 ? 2 : 1); valueIndex++)
-		{
-			// todo - multiply by GQR scale?
-			mov(tempWReg, tempVReg.s[valueIndex]);
-			// clamp value in tempWReg and store in temp2WReg
-			clamp();
-
-			if (bitWriteSize == 16)
-			{
-				// endian swap
-				rev(temp2WReg, temp2WReg);
-				lsr(temp2WReg, temp2WReg, 16);
-			}
-			sint32 address = memOffset + valueIndex * (bitWriteSize / 8);
-			add_imm(tempWReg, memReg, address, tempWReg);
-			auto adr = AdrExt(memBase, tempWReg, ExtMod::UXTW);
-			// write to memory
-			if (bitWriteSize == 8)
-				strb(temp2WReg, adr);
-			else if (bitWriteSize == 16)
-				strh(temp2WReg, adr);
-		}
 	}
 }
 
-void AArch64GenContext_t::psq_store_generic(uint8 mode, IMLRegID dataRegId, WReg& memReg, WReg& indexReg, sint32 memOffset, bool indexed, IMLReg registerGQR)
+void AArch64GenContext_t::psq_store_generic(uint8 mode, IMLRegID dataRegId, WReg& memReg, WReg& indexReg, sint32 memOffset, bool indexed, const IMLReg& registerGQR)
 {
 	bool storePS1 = (mode == PPCREC_FPR_ST_MODE_PSQ_GENERIC_PS0_PS1);
 	Label u8FormatLabel, u16FormatLabel, s8FormatLabel, s16FormatLabel, casesEndLabel;
 	// load GQR & extract store type field
-	and_(tempWReg, WReg(registerGQR.GetRegID()), 7);
+	and_(TEMP_GPR_1_WREG, gpReg<WReg>(registerGQR.GetRegID()), 7);
 
 	// jump cases
-	cmp(tempWReg, 4); // type 4 -> u8
+	cmp(TEMP_GPR_1_WREG, 4); // type 4 -> u8
 	beq(u8FormatLabel);
 
-	cmp(tempWReg, 5); // type 5 -> u16
+	cmp(TEMP_GPR_1_WREG, 5); // type 5 -> u16
 	beq(u16FormatLabel);
 
-	cmp(tempWReg, 6); // type 6 -> s8
+	cmp(TEMP_GPR_1_WREG, 6); // type 6 -> s8
 	beq(s8FormatLabel);
 
-	cmp(tempWReg, 7); // type 7 -> s16
+	cmp(TEMP_GPR_1_WREG, 7); // type 7 -> s16
 	beq(s16FormatLabel);
 
 	// default case -> float
@@ -1372,47 +1405,47 @@ bool AArch64GenContext_t::fpr_store(IMLInstruction* imlInstruction, bool indexed
 	IMLRegID dataRegId = imlInstruction->op_storeLoad.registerData.GetRegID();
 	VReg dataReg = fpReg<VReg>(dataRegId);
 	DReg dataDReg = fpReg<DReg>(dataRegId);
-	WReg memReg = WReg(imlInstruction->op_storeLoad.registerMem.GetRegID());
-	WReg indexReg = indexed ? WReg(imlInstruction->op_storeLoad.registerMem2.GetRegID()) : wzr;
+	WReg memReg = gpReg<WReg>(imlInstruction->op_storeLoad.registerMem.GetRegID());
+	WReg indexReg = indexed ? gpReg<WReg>(imlInstruction->op_storeLoad.registerMem2.GetRegID()) : wzr;
 	sint32 memOffset = imlInstruction->op_storeLoad.immS32;
 	uint8 mode = imlInstruction->op_storeLoad.mode;
 
 	if (mode == PPCREC_FPR_ST_MODE_SINGLE_FROM_PS0)
 	{
-		add_imm(tempWReg, memReg, memOffset, tempWReg);
+		add_imm(TEMP_GPR_1_WREG, memReg, memOffset, TEMP_GPR_1_WREG);
 		if (indexed)
-			add(tempWReg, tempWReg, indexReg);
-		auto adr = AdrExt(memBase, tempWReg, ExtMod::UXTW);
+			add(TEMP_GPR_1_WREG, TEMP_GPR_1_WREG, indexReg);
+		auto adr = AdrExt(MEM_BASE_REG, TEMP_GPR_1_WREG, ExtMod::UXTW);
 		if (imlInstruction->op_storeLoad.flags2.notExpanded)
 		{
 			// value is already in single format
-			mov(temp2WReg, dataReg.s[0]);
+			mov(TEMP_GPR_2_WREG, dataReg.s[0]);
 		}
 		else
 		{
-			fcvt(tempSReg, dataDReg);
-			fmov(temp2WReg, tempSReg);
+			fcvt(TEMP_FPR_1_SREG, dataDReg);
+			fmov(TEMP_GPR_2_WREG, TEMP_FPR_1_SREG);
 		}
-		rev(temp2WReg, temp2WReg);
-		str(temp2WReg, adr);
+		rev(TEMP_GPR_2_WREG, TEMP_GPR_2_WREG);
+		str(TEMP_GPR_2_WREG, adr);
 	}
 	else if (mode == PPCREC_FPR_ST_MODE_DOUBLE_FROM_PS0)
 	{
-		add_imm(tempWReg, memReg, memOffset, tempWReg);
+		add_imm(TEMP_GPR_1_WREG, memReg, memOffset, TEMP_GPR_1_WREG);
 		if (indexed)
-			add(tempWReg, tempWReg, indexReg);
-		mov(temp2XReg, dataReg.d[0]);
-		rev(temp2XReg, temp2XReg);
-		str(temp2XReg, AdrExt(memBase, tempWReg, ExtMod::UXTW));
+			add(TEMP_GPR_1_WREG, TEMP_GPR_1_WREG, indexReg);
+		mov(TEMP_GPR_2_XREG, dataReg.d[0]);
+		rev(TEMP_GPR_2_XREG, TEMP_GPR_2_XREG);
+		str(TEMP_GPR_2_XREG, AdrExt(MEM_BASE_REG, TEMP_GPR_1_WREG, ExtMod::UXTW));
 	}
 	else if (mode == PPCREC_FPR_ST_MODE_UI32_FROM_PS0)
 	{
-		add_imm(tempWReg, memReg, memOffset, tempWReg);
+		add_imm(TEMP_GPR_1_WREG, memReg, memOffset, TEMP_GPR_1_WREG);
 		if (indexed)
-			add(tempWReg, tempWReg, indexReg);
-		mov(temp2WReg, dataReg.s[0]);
-		rev(temp2WReg, temp2WReg);
-		str(temp2WReg, AdrExt(memBase, tempWReg, ExtMod::UXTW));
+			add(TEMP_GPR_1_WREG, TEMP_GPR_1_WREG, indexReg);
+		mov(TEMP_GPR_2_WREG, dataReg.s[0]);
+		rev(TEMP_GPR_2_WREG, TEMP_GPR_2_WREG);
+		str(TEMP_GPR_2_WREG, AdrExt(MEM_BASE_REG, TEMP_GPR_1_WREG, ExtMod::UXTW));
 	}
 	else if (mode == PPCREC_FPR_ST_MODE_PSQ_FLOAT_PS0_PS1 ||
 			 mode == PPCREC_FPR_ST_MODE_PSQ_FLOAT_PS0 ||
@@ -1436,7 +1469,7 @@ bool AArch64GenContext_t::fpr_store(IMLInstruction* imlInstruction, bool indexed
 	else
 	{
 		cemu_assert_suspicious();
-		debug_printf("PPCRecompilerAArch64Gen_imlInstruction_fpr_store(): Unsupported mode %d\n", mode);
+		cemuLog_log(LogType::Recompiler, "PPCRecompilerAArch64Gen_imlInstruction_fpr_store(): Unsupported mode %d\n", mode);
 		return false;
 	}
 	return true;
@@ -1470,9 +1503,7 @@ void AArch64GenContext_t::fpr_r_r(IMLInstruction* imlInstruction)
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_COPY_BOTTOM_AND_TOP_SWAPPED)
 	{
-		mov(tempVReg.b16, regAVReg.b16);
-		mov(regRVReg.d[0], tempVReg.d[1]);
-		mov(regRVReg.d[1], tempVReg.d[0]);
+		ext(regRVReg.b16, regAVReg.b16, regAVReg.b16, 8);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_COPY_TOP_TO_TOP)
 	{
@@ -1485,9 +1516,9 @@ void AArch64GenContext_t::fpr_r_r(IMLInstruction* imlInstruction)
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_MULTIPLY_BOTTOM)
 	{
-		mov(tempVReg.b16, regAVReg.b16);
-		fmul(tempVReg.d2, regRVReg.d2, tempVReg.d2);
-		mov(regRVReg.d[0], tempVReg.d[0]);
+		mov(TEMP_FPR_1_VREG.b16, regAVReg.b16);
+		fmul(TEMP_FPR_1_VREG.d2, regRVReg.d2, TEMP_FPR_1_VREG.d2);
+		mov(regRVReg.d[0], TEMP_FPR_1_VREG.d[0]);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_MULTIPLY_PAIR)
 	{
@@ -1495,9 +1526,9 @@ void AArch64GenContext_t::fpr_r_r(IMLInstruction* imlInstruction)
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_DIVIDE_BOTTOM)
 	{
-		mov(tempVReg.b16, regAVReg.b16);
-		fdiv(tempVReg.d2, regRVReg.d2, tempVReg.d2);
-		mov(regRVReg.d[0], tempVReg.d[0]);
+		mov(TEMP_FPR_1_VREG.b16, regAVReg.b16);
+		fdiv(TEMP_FPR_1_VREG.d2, regRVReg.d2, TEMP_FPR_1_VREG.d2);
+		mov(regRVReg.d[0], TEMP_FPR_1_VREG.d[0]);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_DIVIDE_PAIR)
 	{
@@ -1505,9 +1536,9 @@ void AArch64GenContext_t::fpr_r_r(IMLInstruction* imlInstruction)
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_ADD_BOTTOM)
 	{
-		mov(tempVReg.b16, regAVReg.b16);
-		fadd(tempVReg.d2, regRVReg.d2, tempVReg.d2);
-		mov(regRVReg.d[0], tempVReg.d[0]);
+		mov(TEMP_FPR_1_VREG.b16, regAVReg.b16);
+		fadd(TEMP_FPR_1_VREG.d2, regRVReg.d2, TEMP_FPR_1_VREG.d2);
+		mov(regRVReg.d[0], TEMP_FPR_1_VREG.d[0]);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_ADD_PAIR)
 	{
@@ -1519,9 +1550,9 @@ void AArch64GenContext_t::fpr_r_r(IMLInstruction* imlInstruction)
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_SUB_BOTTOM)
 	{
-		mov(tempVReg.b16, regAVReg.b16);
-		fsub(tempVReg.d2, regRVReg.d2, tempVReg.d2);
-		mov(regRVReg.d[0], tempVReg.d[0]);
+		mov(TEMP_FPR_1_VREG.b16, regAVReg.b16);
+		fsub(TEMP_FPR_1_VREG.d2, regRVReg.d2, TEMP_FPR_1_VREG.d2);
+		mov(regRVReg.d[0], TEMP_FPR_1_VREG.d[0]);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_ASSIGN)
 	{
@@ -1530,26 +1561,26 @@ void AArch64GenContext_t::fpr_r_r(IMLInstruction* imlInstruction)
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_BOTTOM_FCTIWZ)
 	{
-		fcvtzs(tempWReg, regADReg);
-		mov(regRVReg.d[0], tempXReg);
+		fcvtzs(TEMP_GPR_1_WREG, regADReg);
+		mov(regRVReg.d[0], TEMP_GPR_1_XREG);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_BOTTOM_FRES_TO_BOTTOM_AND_TOP)
 	{
-		mov(temp2XReg, x30);
-		mov(tempXReg, (uint64)recompiler_fres);
-		mov(asmRoutineVReg.d[0], regAVReg.d[0]);
-		blr(tempXReg);
-		dup(regRVReg.d2, asmRoutineVReg.d[0]);
-		mov(x30, temp2XReg);
+		mov(TEMP_GPR_2_XREG, x30);
+		mov(TEMP_GPR_1_XREG, (uint64)recompiler_fres);
+		mov(ASM_ROUTINE_FPR_VREG.d[0], regAVReg.d[0]);
+		blr(TEMP_GPR_1_XREG);
+		dup(regRVReg.d2, ASM_ROUTINE_FPR_VREG.d[0]);
+		mov(x30, TEMP_GPR_2_XREG);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_BOTTOM_RECIPROCAL_SQRT)
 	{
-		mov(temp2XReg, x30);
-		mov(tempXReg, (uint64)recompiler_frsqrte);
-		mov(asmRoutineVReg.d[0], regAVReg.d[0]);
-		blr(tempXReg);
-		mov(regRVReg.d[0], asmRoutineVReg.d[0]);
-		mov(x30, temp2XReg);
+		mov(TEMP_GPR_2_XREG, x30);
+		mov(TEMP_GPR_1_XREG, (uint64)recompiler_frsqrte);
+		mov(ASM_ROUTINE_FPR_VREG.d[0], regAVReg.d[0]);
+		blr(TEMP_GPR_1_XREG);
+		mov(regRVReg.d[0], ASM_ROUTINE_FPR_VREG.d[0]);
+		mov(x30, TEMP_GPR_2_XREG);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_NEGATE_PAIR)
 	{
@@ -1561,27 +1592,27 @@ void AArch64GenContext_t::fpr_r_r(IMLInstruction* imlInstruction)
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_FRES_PAIR)
 	{
-		mov(temp2XReg, x30);
-		mov(tempXReg, (uint64)recompiler_fres);
-		mov(asmRoutineVReg.d[0], regAVReg.d[0]);
-		blr(tempXReg);
-		mov(regRVReg.d[0], asmRoutineVReg.d[0]);
-		mov(asmRoutineVReg.d[0], regAVReg.d[1]);
-		blr(tempXReg);
-		mov(regRVReg.d[1], asmRoutineVReg.d[0]);
-		mov(x30, temp2XReg);
+		mov(TEMP_GPR_2_XREG, x30);
+		mov(TEMP_GPR_1_XREG, (uint64)recompiler_fres);
+		mov(ASM_ROUTINE_FPR_VREG.d[0], regAVReg.d[0]);
+		blr(TEMP_GPR_1_XREG);
+		mov(regRVReg.d[0], ASM_ROUTINE_FPR_VREG.d[0]);
+		mov(ASM_ROUTINE_FPR_VREG.d[0], regAVReg.d[1]);
+		blr(TEMP_GPR_1_XREG);
+		mov(regRVReg.d[1], ASM_ROUTINE_FPR_VREG.d[0]);
+		mov(x30, TEMP_GPR_2_XREG);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_FRSQRTE_PAIR)
 	{
-		mov(temp2XReg, x30);
-		mov(tempXReg, (uint64)recompiler_frsqrte);
-		mov(asmRoutineVReg.d[0], regAVReg.d[0]);
-		blr(tempXReg);
-		mov(regRVReg.d[0], asmRoutineVReg.d[0]);
-		mov(asmRoutineVReg.d[0], regAVReg.d[1]);
-		blr(tempXReg);
-		mov(regRVReg.d[1], asmRoutineVReg.d[0]);
-		mov(x30, temp2XReg);
+		mov(TEMP_GPR_2_XREG, x30);
+		mov(TEMP_GPR_1_XREG, (uint64)recompiler_frsqrte);
+		mov(ASM_ROUTINE_FPR_VREG.d[0], regAVReg.d[0]);
+		blr(TEMP_GPR_1_XREG);
+		mov(regRVReg.d[0], ASM_ROUTINE_FPR_VREG.d[0]);
+		mov(ASM_ROUTINE_FPR_VREG.d[0], regAVReg.d[1]);
+		blr(TEMP_GPR_1_XREG);
+		mov(regRVReg.d[1], ASM_ROUTINE_FPR_VREG.d[0]);
+		mov(x30, TEMP_GPR_2_XREG);
 	}
 	else
 	{
@@ -1597,13 +1628,13 @@ void AArch64GenContext_t::fpr_r_r_r(IMLInstruction* imlInstruction)
 
 	if (imlInstruction->operation == PPCREC_IML_OP_FPR_MULTIPLY_BOTTOM)
 	{
-		fmul(tempVReg.d2, regA.d2, regB.d2);
-		mov(regR.d[0], tempVReg.d[0]);
+		fmul(TEMP_FPR_1_VREG.d2, regA.d2, regB.d2);
+		mov(regR.d[0], TEMP_FPR_1_VREG.d[0]);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_ADD_BOTTOM)
 	{
-		fadd(tempVReg.d2, regA.d2, regB.d2);
-		mov(regR.d[0], tempVReg.d[0]);
+		fadd(TEMP_FPR_1_VREG.d2, regA.d2, regB.d2);
+		mov(regR.d[0], TEMP_FPR_1_VREG.d[0]);
 		mov(regR.d[1], regA.d[1]);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_SUB_PAIR)
@@ -1612,8 +1643,8 @@ void AArch64GenContext_t::fpr_r_r_r(IMLInstruction* imlInstruction)
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_SUB_BOTTOM)
 	{
-		fsub(tempVReg.d2, regA.d2, regB.d2);
-		mov(regR.d[0], tempVReg.d[0]);
+		fsub(TEMP_FPR_1_VREG.d2, regA.d2, regB.d2);
+		mov(regR.d[0], TEMP_FPR_1_VREG.d[0]);
 	}
 	else
 	{
@@ -1633,17 +1664,17 @@ void AArch64GenContext_t::fpr_r_r_r_r(IMLInstruction* imlInstruction)
 
 	if (imlInstruction->operation == PPCREC_IML_OP_FPR_SUM0)
 	{
-		mov(tempVReg.d[0], regB.d[1]);
-		fadd(tempVReg.d2, tempVReg.d2, regA.d2);
-		mov(tempVReg.d[1], regC.d[1]);
-		mov(regR.b16, tempVReg.b16);
+		mov(TEMP_FPR_1_VREG.d[0], regB.d[1]);
+		fadd(TEMP_FPR_1_VREG.d2, TEMP_FPR_1_VREG.d2, regA.d2);
+		mov(TEMP_FPR_1_VREG.d[1], regC.d[1]);
+		mov(regR.b16, TEMP_FPR_1_VREG.b16);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_SUM1)
 	{
-		mov(tempVReg.d[1], regA.d[0]);
-		fadd(tempVReg.d2, tempVReg.d2, regB.d2);
-		mov(tempVReg.d[0], regC.d[0]);
-		mov(regR.b16, tempVReg.b16);
+		mov(TEMP_FPR_1_VREG.d[1], regA.d[0]);
+		fadd(TEMP_FPR_1_VREG.d2, TEMP_FPR_1_VREG.d2, regB.d2);
+		mov(TEMP_FPR_1_VREG.d[0], regC.d[0]);
+		mov(regR.b16, TEMP_FPR_1_VREG.b16);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_SELECT_BOTTOM)
 	{
@@ -1651,14 +1682,14 @@ void AArch64GenContext_t::fpr_r_r_r_r(IMLInstruction* imlInstruction)
 		auto regBDReg = fpReg<DReg>(imlInstruction->op_fpr_r_r_r_r.regB.GetRegID());
 		auto regCDReg = fpReg<DReg>(imlInstruction->op_fpr_r_r_r_r.regC.GetRegID());
 		fcmp(regADReg, 0.0);
-		fcsel(tempDReg, regCDReg, regBDReg, Cond::GE);
-		mov(regR.d[0], tempVReg.d[0]);
+		fcsel(TEMP_FPR_1_DREG, regCDReg, regBDReg, Cond::GE);
+		mov(regR.d[0], TEMP_FPR_1_VREG.d[0]);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_SELECT_PAIR)
 	{
-		fcmge(tempVReg.d2, regA.d2, 0.0);
-		bsl(tempVReg.b16, regC.b16, regB.b16);
-		mov(regR.b16, tempVReg.b16);
+		fcmge(TEMP_FPR_1_VREG.d2, regA.d2, 0.0);
+		bsl(TEMP_FPR_1_VREG.b16, regC.b16, regB.b16);
+		mov(regR.b16, TEMP_FPR_1_VREG.b16);
 	}
 	else
 	{
@@ -1672,27 +1703,27 @@ void AArch64GenContext_t::fpr_r(IMLInstruction* imlInstruction)
 
 	if (imlInstruction->operation == PPCREC_IML_OP_FPR_NEGATE_BOTTOM)
 	{
-		fneg(tempVReg.d2, regR.d2);
-		mov(regR.d[0], tempVReg.d[0]);
+		fneg(TEMP_FPR_1_VREG.d2, regR.d2);
+		mov(regR.d[0], TEMP_FPR_1_VREG.d[0]);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_ABS_BOTTOM)
 	{
-		fabs(tempVReg.d2, regR.d2);
-		mov(regR.d[0], tempVReg.d[0]);
+		fabs(TEMP_FPR_1_VREG.d2, regR.d2);
+		mov(regR.d[0], TEMP_FPR_1_VREG.d[0]);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_NEGATIVE_ABS_BOTTOM)
 	{
-		fabs(tempVReg.d2, regR.d2);
-		fneg(tempVReg.d2, tempVReg.d2);
-		mov(regR.d[0], tempVReg.d[0]);
+		fabs(TEMP_FPR_1_VREG.d2, regR.d2);
+		fneg(TEMP_FPR_1_VREG.d2, TEMP_FPR_1_VREG.d2);
+		mov(regR.d[0], TEMP_FPR_1_VREG.d[0]);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_ROUND_TO_SINGLE_PRECISION_BOTTOM)
 	{
 		// convert to 32bit single
-		fcvtn(tempVReg.s2, regR.d2);
+		fcvtn(TEMP_FPR_1_VREG.s2, regR.d2);
 		// convert back to 64bit double
-		fcvtl(tempVReg.d2, tempVReg.s2);
-		mov(regR.d[0], tempVReg.d[0]);
+		fcvtl(TEMP_FPR_1_VREG.d2, TEMP_FPR_1_VREG.s2);
+		mov(regR.d[0], TEMP_FPR_1_VREG.d[0]);
 	}
 	else if (imlInstruction->operation == PPCREC_IML_OP_FPR_ROUND_TO_SINGLE_PRECISION_PAIR)
 	{
@@ -1706,7 +1737,7 @@ void AArch64GenContext_t::fpr_r(IMLInstruction* imlInstruction)
 		// convert bottom to 64bit double
 		fcvtl(regR.d2, regR.s2);
 		// copy to top half
-		dup(regR.d2, regR.d[0]);
+		mov(regR.d[1], regR.d[0]);
 	}
 	else
 	{
@@ -1736,7 +1767,7 @@ Cond ImlFPCondToArm64Cond(IMLCondition cond)
 
 void AArch64GenContext_t::fpr_compare(IMLInstruction* imlInstruction)
 {
-	auto regR = XReg(imlInstruction->op_fpr_compare.regR.GetRegID());
+	auto regR = gpReg<XReg>(imlInstruction->op_fpr_compare.regR.GetRegID());
 	auto regA = fpReg<DReg>(imlInstruction->op_fpr_compare.regA.GetRegID());
 	auto regB = fpReg<DReg>(imlInstruction->op_fpr_compare.regB.GetRegID());
 	auto cond = ImlFPCondToArm64Cond(imlInstruction->op_fpr_compare.cond);
@@ -1911,8 +1942,8 @@ std::unique_ptr<CodeContext> PPCRecompiler_generateAArch64Code(struct PPCRecFunc
 			else
 			{
 				codeGenerationFailed = true;
-				// cemu_assert_suspicious();
-				debug_printf("PPCRecompiler_generateX64Code(): Unsupported iml type 0x%x\n", imlInstruction->type);
+				cemu_assert_suspicious();
+				cemuLog_log(LogType::Recompiler, "PPCRecompiler_generateX64Code(): Unsupported iml type {:x}", imlInstruction->type);
 			}
 		}
 	}
@@ -1932,12 +1963,11 @@ std::unique_ptr<CodeContext> PPCRecompiler_generateAArch64Code(struct PPCRecFunc
 
 void AArch64GenContext_t::enterRecompilerCode()
 {
-	constexpr size_t stackSize = 8 * (30 - 16) /* x16 - x30 */ + 8 * (15 - 8) /*v8.d[0] - v15.d[0]*/ + 8;
+	constexpr size_t stackSize = 8 * (30 - 18) /* x18 - x30 */ + 8 * (15 - 8) /*v8.d[0] - v15.d[0]*/ + 8;
 	static_assert(stackSize % 16 == 0);
 	sub(sp, sp, stackSize);
 	mov(x9, sp);
 
-	stp(x16, x17, AdrPostImm(x9, 16));
 	stp(x19, x20, AdrPostImm(x9, 16));
 	stp(x21, x22, AdrPostImm(x9, 16));
 	stp(x23, x24, AdrPostImm(x9, 16));
@@ -1946,18 +1976,14 @@ void AArch64GenContext_t::enterRecompilerCode()
 	stp(x29, x30, AdrPostImm(x9, 16));
 	st4((v8.d - v11.d)[0], AdrPostImm(x9, 32));
 	st4((v12.d - v15.d)[0], AdrPostImm(x9, 32));
-	// MOV RSP, RDX (ppc interpreter instance)
-	mov(hCPU, x1); // call argument 2
-	// MOV R15, ppcRecompilerInstanceData
-	mov(ppcRec, (uint64)ppcRecompilerInstanceData);
-	// MOV R13, memory_base
-	mov(memBase, (uint64)memory_base);
+	mov(HCPU_REG, x1); // call argument 2
+	mov(PPC_REC_INSTANCE_REG, (uint64)ppcRecompilerInstanceData);
+	mov(MEM_BASE_REG, (uint64)memory_base);
 
-	// JMP recFunc
+	// branch to recFunc
 	blr(x0); // call argument 1
 
 	mov(x9, sp);
-	ldp(x16, x17, AdrPostImm(x9, 16));
 	ldp(x19, x20, AdrPostImm(x9, 16));
 	ldp(x21, x22, AdrPostImm(x9, 16));
 	ldp(x23, x24, AdrPostImm(x9, 16));
@@ -1973,7 +1999,7 @@ void AArch64GenContext_t::enterRecompilerCode()
 
 void AArch64GenContext_t::leaveRecompilerCode()
 {
-	str(lrWReg, AdrImm(hCPU, offsetof(PPCInterpreter_t, instructionPointer)));
+	str(LR_WREG, AdrImm(HCPU_REG, offsetof(PPCInterpreter_t, instructionPointer)));
 	ret();
 }
 

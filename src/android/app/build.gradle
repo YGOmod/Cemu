@@ -10,7 +10,7 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace 'info.cemu.Cemu'
     compileSdk 34
-    ndkVersion '26.1.10909125'
+    ndkVersion '27.1.12297006'
     defaultConfig {
         applicationId "info.cemu.Cemu"
         minSdk 30
