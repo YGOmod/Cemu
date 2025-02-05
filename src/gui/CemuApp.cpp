@@ -233,6 +233,12 @@ void CemuApp::InitializeExistingMLCOrFail(fs::path mlc)
 			g_config.Save();
 		}
 	}
+	else
+	{
+		// default path is not writeable. Just let the user know and quit. Unsure if it would be a good idea to ask the user to choose an alternative path instead
+		wxMessageBox(formatWxString(_("Cemu failed to write to the default mlc directory.\nThe path is:\n{}"), wxHelper::FromPath(mlc)), _("Error"), wxOK | wxCENTRE | wxICON_ERROR);
+		exit(0);
+	}
 }
 
 bool CemuApp::OnInit()
