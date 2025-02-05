@@ -114,8 +114,8 @@ namespace NativeEmulation
 			{
 				return ERROR_GAME_BASE_FILES_NOT_FOUND;
 			}
-			CafeSystem::STATUS_CODE r = CafeSystem::PrepareForegroundTitle(baseTitleId);
-			if (r != CafeSystem::STATUS_CODE::SUCCESS)
+			CafeSystem::PREPARE_STATUS_CODE r = CafeSystem::PrepareForegroundTitle(baseTitleId);
+			if (r != CafeSystem::PREPARE_STATUS_CODE::SUCCESS)
 			{
 				return ERROR_UNKNOWN;
 			}
@@ -127,8 +127,8 @@ namespace NativeEmulation
 			CafeTitleFileType fileType = DetermineCafeSystemFileType(launchPath);
 			if (fileType == CafeTitleFileType::RPX || fileType == CafeTitleFileType::ELF)
 			{
-				CafeSystem::STATUS_CODE r = CafeSystem::PrepareForegroundTitleFromStandaloneRPX(launchPath);
-				if (r != CafeSystem::STATUS_CODE::SUCCESS)
+				CafeSystem::PREPARE_STATUS_CODE r = CafeSystem::PrepareForegroundTitleFromStandaloneRPX(launchPath);
+				if (r != CafeSystem::PREPARE_STATUS_CODE::SUCCESS)
 				{
 					return ERROR_UNKNOWN;
 				}
