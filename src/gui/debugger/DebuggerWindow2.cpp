@@ -64,6 +64,7 @@ wxBEGIN_EVENT_TABLE(DebuggerWindow2, wxFrame)
 	EVT_COMMAND(wxID_ANY, wxEVT_RUN, DebuggerWindow2::OnRunProgram)
 	EVT_COMMAND(wxID_ANY, wxEVT_NOTIFY_MODULE_LOADED, DebuggerWindow2::OnNotifyModuleLoaded)
 	EVT_COMMAND(wxID_ANY, wxEVT_NOTIFY_MODULE_UNLOADED, DebuggerWindow2::OnNotifyModuleUnloaded)
+	EVT_COMMAND(wxID_ANY, wxEVT_DISASMCTRL_NOTIFY_GOTO_ADDRESS, DebuggerWindow2::OnDisasmCtrlGotoAddress)
 	// file menu
 	EVT_MENU(MENU_ID_FILE_EXIT, DebuggerWindow2::OnExit)
 	// window
@@ -380,6 +381,12 @@ void DebuggerWindow2::OnMoveIP(wxCommandEvent& event)
 	m_disasm_ctrl->CenterOffset(ip);
 }
 
+void DebuggerWindow2::OnDisasmCtrlGotoAddress(wxCommandEvent& event)
+{
+	uint32 address = static_cast<uint32>(event.GetExtraLong());
+	UpdateModuleLabel(address);
+}
+
 void DebuggerWindow2::OnParentMove(const wxPoint& main_position, const wxSize& main_size)
 {
 	m_main_position = main_position;
@@ -404,7 +411,7 @@ void DebuggerWindow2::OnParentMove(const wxPoint& main_position, const wxSize& m
 
 void DebuggerWindow2::OnNotifyModuleLoaded(wxCommandEvent& event)
 {
-	RPLModule* module = (RPLModule*)event.GetClientData();
+	RPLModule* module = (RPLModule*)event.GetClientData(); // todo - the RPL module is already unloaded at this point. Find a better way to handle this
 	LoadModuleStorage(module);
 	m_module_window->OnGameLoaded();
 	m_symbol_window->OnGameLoaded();
