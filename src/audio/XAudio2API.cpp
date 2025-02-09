@@ -73,7 +73,7 @@ XAudio2API::XAudio2API(std::wstring device_id, uint32 samplerate, uint32 channel
 		m_wfx.dwChannelMask = 0;
 		break;
 	}
-	
+
 	IXAudio2SourceVoice* source_voice;
 	if (FAILED((hres = m_xaudio->CreateSourceVoice(&source_voice, &m_wfx.Format, 0, 1.0f))))
 		throw std::runtime_error(fmt::format("can't create xaudio source voice (hres: {:#x})", hres));
@@ -231,13 +231,13 @@ const std::vector<XAudio2API::DeviceDescriptionPtr>& XAudio2API::RefreshDevices(
 						}
 
 						std::replace(id.begin(), id.end(), L'\\', L'#'); // xaudio devices have "#" instead of backslashes
-						
+
 						std::wstringstream tmp;
 						tmp << L"\\\\?\\" << id << L"#{" << WStringFromGUID(DEVINTERFACE_AUDIO_RENDER_GUID) << L"}";
 						device_id = tmp.str();
 					}
 				}
-			
+
 				auto device = std::make_shared<XAudio2DeviceDescription>(name,device_id);
 				s_devices.emplace_back(device);
 
@@ -250,7 +250,7 @@ const std::vector<XAudio2API::DeviceDescriptionPtr>& XAudio2API::RefreshDevices(
 			auto default_device = std::make_shared<XAudio2DeviceDescription>(L"Primary Sound Driver", L"");
 			s_devices.insert(s_devices.begin(), default_device);
 		}
-		
+
 		wbem_enum->Release();
 
 		// Clean up

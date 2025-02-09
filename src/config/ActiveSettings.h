@@ -90,7 +90,7 @@ public:
 	[[nodiscard]] static uint8 GetTimerShiftFactor();
 
 	static void SetTimerShiftFactor(uint8 shiftFactor);
-	
+
 	// gpu
 	[[nodiscard]] static PrecompiledShaderOption GetPrecompiledShadersOption();
 	[[nodiscard]] static bool RenderUpsideDownEnabled();

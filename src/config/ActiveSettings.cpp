@@ -116,7 +116,7 @@ GraphicAPI ActiveSettings::GetGraphicsAPI()
 	// check if vulkan even available
 	if (api == kVulkan && !g_vulkan_available)
 		api = kOpenGL;
-	
+
 	return api;
 }
 

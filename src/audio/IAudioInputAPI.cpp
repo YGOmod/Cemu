@@ -59,7 +59,7 @@ std::vector<IAudioInputAPI::DeviceDescriptionPtr> IAudioInputAPI::GetDevices(Aud
 {
 	if (!IsAudioInputAPIAvailable(api))
 		return {};
-	
+
 	switch(api)
 	{
 #if HAS_CUBEB

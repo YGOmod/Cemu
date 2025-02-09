@@ -139,7 +139,7 @@ std::vector<IAudioAPI::DeviceDescriptionPtr> IAudioAPI::GetDevices(AudioAPI api)
 {
 	if (!IsAudioAPIAvailable(api))
 		return {};
-	
+
 	switch(api)
 	{
 #if BOOST_OS_WINDOWS

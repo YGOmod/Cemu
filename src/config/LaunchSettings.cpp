@@ -35,7 +35,7 @@ bool LaunchSettings::HandleCommandline(int argc, wchar_t* argv[])
 	{
 		args.emplace_back(argv[i]);
 	}
-	
+
 	return HandleCommandline(args);
 }
 
@@ -47,7 +47,7 @@ bool LaunchSettings::HandleCommandline(int argc, char* argv[])
 	{
 		args.emplace_back(boost::nowide::widen(argv[i]));
 	}
-	
+
 	return HandleCommandline(args);
 }
 
@@ -83,7 +83,7 @@ bool LaunchSettings::HandleCommandline(const std::vector<std::wstring>& args)
 		("extract,e", po::wvalue<std::wstring>(), "Path to WUD or WUX file for extraction")
 		("path,p", po::value<std::string>(), "Path of file to extract (for example meta/meta.xml)")
 		("output,o", po::wvalue<std::wstring>(), "Output path for extracted file.");
-	
+
 	po::options_description all;
 	all.add(desc).add(hidden).add(extractor);
 
@@ -129,7 +129,7 @@ bool LaunchSettings::HandleCommandline(const std::vector<std::wstring>& args)
 			// workaround for boost command_line_parser not trimming token for short name parameters despite short_allow_adjacent
 			if (tmp.size() > 0 && tmp.front() == '=')
 				tmp.erase(tmp.begin()+0);
-			
+
 			s_load_game_file = tmp;
 		}
 		if (vm.count("title-id"))
@@ -147,7 +147,7 @@ bool LaunchSettings::HandleCommandline(const std::vector<std::wstring>& args)
 				std::cerr << "Expected title_param ID as an unsigned 64-bit hexadecimal string\n";
 			}
 		}
-			
+
 		if (vm.count("mlc"))
 		{
 			std::wstring tmp = vm["mlc"].as<std::wstring>();
@@ -164,18 +164,18 @@ bool LaunchSettings::HandleCommandline(const std::vector<std::wstring>& args)
 			if (id >= Account::kMinPersistendId)
 				s_persistent_id = id;
 		}
-		
+
 		if (vm.count("fullscreen"))
 			s_fullscreen = vm["fullscreen"].as<bool>();
 		if (vm.count("ud"))
 			s_render_upside_down = vm["ud"].as<bool>();
-		
+
 		if (vm.count("nsight"))
 			s_nsight_mode = vm["nsight"].as<bool>();
 
 		if(vm.count("force-interpreter"))
 			s_force_interpreter = vm["force-interpreter"].as<bool>();
-		
+
 		if (vm.count("enable-gdbstub"))
 			s_enable_gdbstub = vm["enable-gdbstub"].as<bool>();
 
@@ -219,7 +219,7 @@ bool LaunchSettings::HandleCommandline(const std::vector<std::wstring>& args)
 		std::cout << errorMsg << std::endl;
 		return false;
 	}
-	
+
 }
 
 bool LaunchSettings::ExtractorTool(std::wstring_view wud_path, std::string_view output_path, std::wstring_view log_path)
@@ -257,10 +257,10 @@ bool LaunchSettings::ExtractorTool(std::wstring_view wud_path, std::string_view 
 			fs::path filename(std::wstring{ log_path });
 
 			filename /= boost::nowide::widen(std::string(output_path));
-			
+
 			fs::path p = filename;
 			p.remove_filename();
-			
+
 			fs::create_directories(p);
 			std::ofstream file(filename, std::ios::out | std::ios::binary);
 			file.write((const char*)fileData.data(), fileData.size());
@@ -280,6 +280,6 @@ bool LaunchSettings::ExtractorTool(std::wstring_view wud_path, std::string_view 
 		printf("%.*s", (int)fileData.size(), fileData.data());
 		fflush(stdout);
 	}
-	
+
 	return true;
 }

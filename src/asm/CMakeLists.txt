@@ -13,7 +13,7 @@ if (CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
 		# doesn't always seem to happen. The Windows CI builds were fine, but locally I would run into this problem
 		# possibly related to https://gitlab.kitware.com/cmake/cmake/-/issues/18889
 		set(CMAKE_ASM_MASM_CREATE_STATIC_LIBRARY "<CMAKE_AR> /OUT:<TARGET> <LINK_FLAGS> <OBJECTS>")
-	
+
 		set_property(TARGET CemuAsm PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 	else()
@@ -22,7 +22,7 @@ if (CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
 		if (APPLE)
 			set(CMAKE_ASM_NASM_COMPILE_OBJECT "<CMAKE_ASM_NASM_COMPILER> -g -Fdwarf -f macho64 --prefix _ -o <OBJECT> <SOURCE>")
 		elseif(ANDROID)
-			set(CMAKE_ASM_NASM_COMPILE_OBJECT "<CMAKE_ASM_NASM_COMPILER> -g dwarf2 -f elf64 -o <OBJECT> <SOURCE>")	
+			set(CMAKE_ASM_NASM_COMPILE_OBJECT "<CMAKE_ASM_NASM_COMPILER> -g dwarf2 -f elf64 -o <OBJECT> <SOURCE>")
 		else()
 			set(CMAKE_ASM_NASM_COMPILE_OBJECT "<CMAKE_ASM_NASM_COMPILER> -g -Fdwarf -f elf64 -o <OBJECT> <SOURCE>")
 		endif()

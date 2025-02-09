@@ -34,13 +34,13 @@ void mainEmulatorLLE()
 	CemuCommonInit();
 	// memory init
 	memory_initPhysicalLayout();
-	
+
 	// start GUI thread
 	gui_create();
 	// load kernel ancast image
 	loadPPCBootrom();
 	loadEncryptedPPCAncastKernel();
-	
+
 	PPCTimer_waitForInit();
 	// begin execution
 	PPCCoreLLE_startSingleCoreScheduler(0x00000100);

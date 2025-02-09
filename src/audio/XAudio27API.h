@@ -64,7 +64,7 @@ private:
 	std::wstring m_device_id;
 	std::unique_ptr<IXAudio2MasteringVoice, VoiceDeleter> m_mastering_voice;
 	std::unique_ptr<IXAudio2SourceVoice, VoiceDeleter> m_source_voice;
-	
+
 	std::unique_ptr<uint8[]> m_audio_buffer[kBlockCount];
 	DWORD m_sound_buffer_size = 0;
 	uint32_t m_offset = 0;

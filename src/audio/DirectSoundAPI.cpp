@@ -151,7 +151,7 @@ DirectSoundAPI::~DirectSoundAPI()
 {
 	m_running = false;
 	DirectSoundAPI::Stop();
-	
+
 	if(m_thread.joinable())
 		m_thread.join();
 
@@ -230,7 +230,7 @@ std::vector<DirectSoundAPI::DeviceDescriptionPtr> DirectSoundAPI::GetDevices()
 	if (result.size() == 1 && result.at(0).get()->GetIdentifier() == L"default") {
 		result.clear();
 	}
-	
+
 	return result;
 }
 

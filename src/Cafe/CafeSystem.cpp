@@ -1029,7 +1029,7 @@ namespace CafeSystem
 	{
 		// starting with Cemu 1.27.0 /vol/storage_mlc01/ is virtualized, meaning that it doesn't point to one singular host os folder anymore
 		// instead it now uses a more complex solution to source titles with various formats (folder, wud, wua) from the game paths and host mlc path
-		
+
 		// todo - mount /vol/storage_mlc01/ with base priority to the host mlc?
 
 		// since mounting titles is an expensive operation we have to avoid mounting all titles at once
