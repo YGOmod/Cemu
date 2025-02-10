@@ -57,8 +57,8 @@ public:
 
 	void getStatistics(uint32& totalHeapSize, uint32& allocatedBytes) const
 	{
-		totalHeapSize = numHeapBytes;
-		allocatedBytes = numAllocatedBytes;
+		totalHeapSize = m_numHeapBytes;
+		allocatedBytes = m_numAllocatedBytes;
 	}
 
 	VkDevice m_device;

@@ -111,7 +111,7 @@ private:
 			return false;
 		allocRange_t* range = new allocRange_t(0, chunkIndex, chunkSize, true);
 		trackFreeRange(range);
-		numHeapBytes += chunkSize;
+		m_numHeapBytes += chunkSize;
 		return true;
 	}
 
@@ -166,7 +166,7 @@ private:
 					{
 						_allocFrom(range, bucketIndex, alignedOffset, size);
 						list_chunks[range->chunkIndex]->map_allocatedRange.emplace(alignedOffset, range);
-						numAllocatedBytes += size;
+						m_numAllocatedBytes += size;
 						return CHAddr(alignedOffset, range->chunkIndex);
 					}
 				}
@@ -199,7 +199,7 @@ private:
 		}
 
 		allocRange_t* range = it->second;
-		numAllocatedBytes -= it->second->size;
+		m_numAllocatedBytes -= it->second->size;
 		list_chunks[range->chunkIndex]->map_allocatedRange.erase(it);
 		// try merge left or right
 		allocRange_t* prevRange = range->prevOrdered;
@@ -296,8 +296,8 @@ private:
 
 public:
 	// statistics
-	uint32 numHeapBytes{}; // total size of the heap
-	uint32 numAllocatedBytes{};
+	uint32 m_numHeapBytes{}; // total size of the heap
+	uint32 m_numAllocatedBytes{};
 };
 
 class VGenericHeap
