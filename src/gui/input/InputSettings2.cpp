@@ -254,7 +254,7 @@ wxWindow* InputSettings2::initialize_page(size_t index)
 			page_data.m_controller_api_remove = remove_api;
 		}
 
-		* pairingDialog = new wxButton(page, wxID_ANY, _("Pair Wii/Wii U Controller"));
+		auto* pairingDialog = new wxButton(page, wxID_ANY, _("Pair Wii/Wii U Controller"));
 		pairingDialog->Bind(wxEVT_BUTTON, [this](wxEvent&) {
 			PairingDialog pairing_dialog(this);
 			pairing_dialog.ShowModal();
